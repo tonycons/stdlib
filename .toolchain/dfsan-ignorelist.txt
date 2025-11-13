@@ -1,0 +1,2 @@
+fun:__asan_poison_memory_region=uninstrumented
+fun:__asan_poison_memory_region=discard

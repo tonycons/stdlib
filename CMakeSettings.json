@@ -1,0 +1,31 @@
+﻿{
+    "configurations": [
+        {
+            "name": "win64-debug",
+            "addressSanitizerEnabled": true,
+            "generator": "Ninja",
+            "configurationType": "Debug",
+            //"inheritEnvironments": [ "linux_clang_x64" ],
+            "intelliSenseMode": "windows-clang-x64",
+            "buildRoot": "${projectDir}\\out\\build\\${name}",
+            "installRoot": "${projectDir}\\out\\install\\${name}",
+            "cmakeCommandArgs": "-DCMAKE_TOOLCHAIN_FILE:FILEPATH=\"${projectDir}\\toolchain\\toolchain.win64-debug.cmake\"",
+            "buildCommandArgs": "",
+            "ctestCommandArgs": ""
+        },
+        {
+            "name": "win64-msvc-debug",
+            "addressSanitizerEnabled": true,
+            "addressSanitizerRuntimeFlags": "",
+            "generator": "Visual Studio 17 2022 Win64",
+            "configurationType": "RelWithDebInfo",
+            "inheritEnvironments": ["msvc_x64_x64"],
+            "intelliSenseMode": "windows-msvc-x64",
+            "buildRoot": "${projectDir}\\out\\build\\${name}",
+            "installRoot": "${projectDir}\\out\\install\\${name}",
+            "cmakeCommandArgs": "",
+            "buildCommandArgs": "",
+            "ctestCommandArgs": ""
+        }
+    ]
+}

@@ -1,0 +1,69 @@
+{
+    "launch": {
+        "version": "0.2.0",
+        "configurations": [
+            {
+                "type": "lldb",
+                "request": "launch",
+                "name": "Debug",
+                "program": "${workspaceFolder}/build/main.exe",
+                "args": [],
+                "cwd": "${workspaceFolder}"
+            },
+        ],
+        "compounds": []
+    },
+    "clangd.restartAfterCrash": true,
+    "clangd.checkUpdates": false,
+    "clangd.detectExtensionConflicts": true,
+    "clangd.onConfigChanged": "prompt",
+    "clangd.serverCompletionRanking": false,
+    "clangd.path": "clangd",
+    "clangd.inactiveRegions.useBackgroundHighlight": true,
+    //
+    // --background-index=false disables unnecessary indexing of the standard library
+    // --header-insertion=never also disables automatic standard library includes
+    //
+    "clangd.arguments": [
+        "--header-insertion=never",
+        "--background-index=false"
+    ],
+    "clangd.fallbackFlags": [ // TODO: Windows equivalents
+        "-std=c++26",
+        "-nostdlib",
+        // "-IC:\\Program Files\\LLVM\\lib\\clang\\16\\include",
+        // "-I${workspaceFolder}/toolchain/llvm-latest/include/c++/v1",
+        // "-I${workspaceFolder}/include"
+    ],
+    "clang-format.executable": "clang-format",
+    "cmake.saveBeforeBuild": true,
+    "cmake.configureOnOpen": true,
+    "cmake.buildBeforeRun": true,
+    "cmake.generator": "Ninja",
+    // "cmake.configureArgs": [
+    //     "-DCMAKE_MAKE_PROGRAM=${workspaceFolder}/tools/ninja"
+    // ],
+    "[cpp]": {
+        "editor.bracketPairColorization.enabled": false,
+        "editor.detectIndentation": false,
+        "editor.fontLigatures": true,
+        "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
+        "editor.formatOnSaveMode": "file",
+        "editor.formatOnSave": true,
+        "editor.formatOnType": false,
+    },
+    "[json]": {
+        "editor.defaultFormatter": "vscode.configuration-editing",
+        "editor.formatOnSave": true
+    },
+    "[javascript]": {
+        "editor.maxTokenizationLineLength": 65535,
+        "editor.formatOnSave": true
+    },
+    "lldb.displayFormat": "auto",
+    "lldb.showDisassembly": "auto",
+    "lldb.dereferencePointers": true,
+    "lldb.consoleMode": "commands",
+    //"editor.fontSize": 12,
+    //"editor.fontFamily": "Monocraft, 'Monocraft', monospace"
+}

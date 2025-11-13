@@ -1,0 +1,14 @@
+#!/bin/bash
+
+read -p "Select one of the targets (x64-linux, win64): " tgt
+
+rm -rf build
+
+cmake \
+--no-warn-unused-cli \
+-DCMAKE_BUILD_TYPE:STRING=RelWithDebInfo \
+-DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE \
+-DCMAKE_TOOLCHAIN_FILE:FILEPATH=.toolchain/toolchain.$tgt.cmake \
+-DCMAKE_MAKE_PROGRAM=ninja \
+-Bbuild \
+-G Ninja
