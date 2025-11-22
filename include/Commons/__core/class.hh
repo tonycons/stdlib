@@ -20,7 +20,10 @@ namespace cm {
 
 class String;
 
-
+///
+/// This is something akin to the Class object in Java-- a constant record of properties about a type.
+/// Generated at compile time, stored at runtime.
+///
 typedef const class Class {
 public:
     using IDType = u64;

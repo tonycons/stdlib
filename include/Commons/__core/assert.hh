@@ -34,7 +34,7 @@ constexpr auto
 // clang-format on
 
 ///
-/// Stores the source code location of where the struct was instantiated.
+/// Stores the source code location of where the SourceLocation was instantiated.
 /// Equivalent to std::source_location.
 ///
 struct SourceLocation
@@ -75,10 +75,15 @@ public:
     FORCEINLINE constexpr auto function() const noexcept { return function_; }
 };
 
+///
+/// Terminates the program if something goes terribly wrong..
+///
 [[noreturn]]
 void panic(char const* message, char const* reason, SourceLocation src);
 
-
+///
+/// Panics if CONDITION is false.
+///
 constexpr void Assert(bool CONDITION, char const* message = "", SourceLocation src = SourceLocation::current())
 {
     (void)message;

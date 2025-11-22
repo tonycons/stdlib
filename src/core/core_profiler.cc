@@ -40,9 +40,6 @@ static unsigned int s_currentStackFrameIndex{};
 static bool s_printed = false;
 
 
-///
-/// edit 5/9/2025
-///
 [[gnu::no_instrument_function]]
 void Profiler::printStackTrace()
 {
@@ -119,9 +116,9 @@ void __cyg_profile_func_exit(void* funcAddr, void* callAddr)
 }
 
 #if __linux
-/**
- * This registers a signal handler in order to print the stack trace when an error like segfault occurs.
- */
+///
+/// This registers a signal handler in order to print the stack trace when an error like segfault occurs.
+///
 [[gnu::constructor(100), gnu::no_instrument_function]]
 void registerSignalHandlers()
 {

@@ -1,3 +1,16 @@
+/*
+   Copyright 2025 Anthony A. Constantinescu.
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+   in compliance with the License. You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software distributed under the License
+   is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+   or implied. See the License for the specific language governing permissions and limitations under
+   the License.
+*/
 #pragma once
 #ifdef __inline_core_header__
 #include <string.h>
@@ -5,7 +18,9 @@
 
 namespace std {
 
-/// initializer_list
+///
+/// My implementation of std::initializer_list
+///
 template<class E>
 class initializer_list {
 public:
@@ -40,26 +55,24 @@ public:
     constexpr E const* end() const noexcept { return UNSAFE(begin() + size()); }
 };
 
-/**
- *  @brief  Return an iterator pointing to the first element of the initializer_list.
- *  @param  ils  Initializer list.
- *  @relates initializer_list
- */
+///
+/// Return an iterator pointing to the first element of the initializer_list.
+/// @param a Initializer list.
+///
 template<class T>
-constexpr T const* begin(initializer_list<T> ils) noexcept
+constexpr T const* begin(initializer_list<T> a) noexcept
 {
-    return ils.begin();
+    return a.begin();
 }
 
-/**
- *  @brief  Return an iterator pointing to one past the last element of the initializer_list.
- *  @param  ils  Initializer list.
- *  @relates initializer_list
- */
+///
+/// Return an iterator pointing to one past the last element of the initializer_list.
+/// @param a Initializer list.
+///
 template<class T>
-constexpr T const* end(initializer_list<T> ils) noexcept
+constexpr T const* end(initializer_list<T> a) noexcept
 {
-    return ils.end();
+    return a.end();
 }
 
 }  // namespace std
@@ -68,6 +81,11 @@ constexpr T const* end(initializer_list<T> ils) noexcept
 namespace cm {
 
 
+///
+/// Just a workaround for some stuff.
+/// Using C++ references plainly prevents some things,
+/// like changing what the reference points to without calling the copy constructor.
+///
 template<typename T>
 class RefWrapper {
 public:
@@ -100,7 +118,10 @@ private:
     T const* ptr;
 };
 
-
+///
+/// Use Array instead.
+/// Just a dummy struct for code that cannot depend on the real Array
+///
 template<typename T, unsigned N>
 struct CVArray
 {

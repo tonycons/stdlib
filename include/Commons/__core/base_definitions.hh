@@ -21,7 +21,9 @@
 #include <intrin.h>
 #endif
 
-
+///
+/// Most compilers have the __has_builtin function to check for the existence of a builtin function
+///
 #ifndef __has_builtin
 #define __has_builtin() 0
 #endif
@@ -137,7 +139,9 @@ struct CPU
 
 } inline constexpr CPU;
 
-
+///
+/// A basic pair structure.
+///
 template<typename A, typename B>
 struct Pair
 {

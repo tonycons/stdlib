@@ -219,36 +219,47 @@ consteval auto GetIntN()
 }  // namespace impl
 
 
-/**
- * An unsigned integer type which has enough bits to store N distinct states.
- */
+///
+/// Type alias for an unsigned integer type which has enough bits to store N distinct states.
+///
 template<unsigned long long N>
 using UintRanged = decltype(impl::GetUintRanged<N>());
 
-/**
- * A signed integer type which has enough bits to store N distinct states.
- */
+///
+/// Type alias for a signed integer type which has enough bits to store N distinct states.
+///
 template<unsigned long long N>
 using IntRanged = decltype(impl::GetIntRanged<N>());
 
+///
+/// Type alias for an unsigned integer that has a certain amount of bits.
+/// Useful if you want the number of bits to be determined via template metaprogramming.
+///
 template<unsigned Bits>
 using UintN = decltype(impl::GetUintN<Bits>());
 
+///
+/// Type alias for a signed integer that has a certain amount of bits.
+/// Useful if you want the number of bits to be determined via template metaprogramming.
+///
 template<unsigned Bits>
 using IntN = decltype(impl::GetIntN<Bits>());
 
-/**
- * Returns an unsigned integer quantity representing kilobytes.
- */
+///
+/// Defines an unsigned integer constant representing kilobytes.
+///
 constexpr auto operator""_KB(unsigned long long _) { return 1024ull * _; }
 
-/**
- * Returns an unsigned integer quantity representing megabytes.
- */
+///
+/// Defines an unsigned integer constant representing megabytes.
+////
 constexpr auto operator""_MB(unsigned long long _) { return 1024ULL * 1024ULL * _; }
 
 using uint = unsigned int;
 
+///
+/// Kinda pointless?..
+///
 template<typename T>
 constexpr inline usize SizeOf = usize(sizeof(T));
 
@@ -271,6 +282,10 @@ using VectorU32x = Vector<u32, Size>;
 static_assert(sizeof(Vector<int, 4>) == 16, "");
 
 
+///
+/// Returns the largest value in a variable-number of arguments
+/// All arguments are coerced to be the same type as the first argument.
+///
 class {
     FORCEINLINE constexpr auto _h(auto const& a, auto const& b) const { return a > b ? a : b; }
 
@@ -279,6 +294,10 @@ public:
     FORCEINLINE constexpr auto operator()(auto const& a, auto const&... args) const { return _h(a, (*this)(args...)); }
 } inline constexpr max;
 
+///
+/// Returns the smallest value in a variable-number of arguments
+/// All arguments are coerced to be the same type as the first argument.
+///
 class {
     FORCEINLINE constexpr auto _h(auto const& a, auto const& b) const { return a < b ? a : b; }
 

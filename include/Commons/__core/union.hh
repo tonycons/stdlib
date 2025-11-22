@@ -27,6 +27,7 @@ namespace cm {
 template<typename... Types>
 class Union {
 public:
+    /// Used to keep track of the type that was chosen to be initialized in the Union constructor.
     template<typename T, int I>
     struct InitSuccess
     {
@@ -41,7 +42,7 @@ private:
     UintRanged<sizeof...(Types)> _tag;  // the Nth type stored in the union
     alignas(max(alignof(Types)...)) u8 _data[max(sizeof(Types)...)];
 
-
+    /// Implements the strong matching rule. Read the Union doc to know what this does.
     struct Strong
     {
         template<typename From, typename To>
@@ -57,6 +58,7 @@ private:
         }
     };
 
+    /// Implements the medium matching rule. Read the Union doc to know what this does.
     struct Medium
     {
         template<typename From, typename To>
@@ -66,6 +68,7 @@ private:
         }
     };
 
+    /// Implements the weak matching rule. Read the Union doc to know what this does.
     struct Weak
     {
         template<typename From, typename To>
@@ -159,6 +162,9 @@ public:
         return *this;
     }
 
+    ///
+    /// Returns true if the active type in the Union is the given type T
+    ///
     template<typename T>
     constexpr bool is() const noexcept
     {
@@ -170,6 +176,9 @@ public:
         }
     }
 
+    ///
+    /// Unsafe-- effectively returns value of reinterpret_cast<T*>(union.data);
+    ///
     template<typename T>
     NODISCARD FORCEINLINE auto const& _ref() const noexcept
     {
@@ -183,6 +192,9 @@ public:
         }
     }
 
+    ///
+    /// Gets the active type of the union as type T, expects you to have already checked that it is type T.
+    ///
     template<typename T>
     NODISCARD FORCEINLINE auto get() const noexcept
     {
@@ -190,13 +202,16 @@ public:
         return const_cast<ConstRemoved<decltype(_ref<T>())>>(_ref<T>());
     }
 
+    ///
+    /// Returns the tag value.
+    ///
     NODISCARD FORCEINLINE auto tag() const noexcept { return _tag; }
 
-    /**
-     *
-     * For each provided closure, the closure that will be called is the one where the type of its first argument
-     * matches the type stored in the union
-     */
+    ///
+    /// Performs matching on the union's active type, like the Rust match clause.
+    /// For each provided closure, the closure that will be called is the one where the type of its first argument
+    /// matches the type stored in the union
+    ///
     FORCEINLINE auto match(auto func, auto... funcs) const
     {
         using T = FunctionTraits<decltype(func)>::template Arg<0>::Type;

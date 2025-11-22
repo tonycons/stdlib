@@ -21,15 +21,8 @@
 
 #include <Commons/core.hh>
 
-using PCHAR = char*;
-using PCCHAR = char const*;
-using PVOID = void*;
-using PCVOID = void const*;
-using PU8 = u8*;
-using PCU8 = u8 const*;
-using USIZE = __SIZE_TYPE__;
-using INT = int;
-using UINT = unsigned int;
+
+using Uint = unsigned int;
 
 
 #if !__STDC_HOSTED__
@@ -44,11 +37,11 @@ extern "C" {
 void* memset(void* dst, int c, __SIZE_TYPE__ n)
 {
     constexpr auto alignment = alignof(long long);
-    auto* p = reinterpret_cast<__UINT8_TYPE__*>(dst);
+    auto* p = reinterpret_cast<__Uint8_TYPE__*>(dst);
     auto* end = p + n;
 
     for (; (reinterpret_cast<__SIZE_TYPE__>(p) & (alignment - 1)) != 0 && p < end; p++)
-        *p = static_cast<__UINT8_TYPE__>(c);
+        *p = static_cast<__Uint8_TYPE__>(c);
 
     for (; p < end; p += alignment)
         __builtin_memset_inline(p, c, alignment);
@@ -62,8 +55,8 @@ void* memset(void* dst, int c, __SIZE_TYPE__ n)
 //
 void* memmove(void* pdst, void const* psrc, __SIZE_TYPE__ n)
 {
-    auto dst = reinterpret_cast<__UINT8_TYPE__*>(pdst);
-    auto src = reinterpret_cast<__UINT8_TYPE__ const*>(psrc);
+    auto dst = reinterpret_cast<__Uint8_TYPE__*>(pdst);
+    auto src = reinterpret_cast<__Uint8_TYPE__ const*>(psrc);
     // TODO: Optimize
 
     if (src < dst)
@@ -108,7 +101,7 @@ __SIZE_TYPE__ strlen(char const* s)
     // // Scan 4 bytes at once:
     // // If we didn't align the pointer previously, a crash could occur on some platforms.
     // for (;;) {
-    //     __UINT32_TYPE__ x = *(__UINT32_TYPE__*)s;
+    //     __Uint32_TYPE__ x = *(__Uint32_TYPE__*)s;
     //     if ((x & 0xFF) == 0)
     //         return len;
     //     if ((x & 0xFF00) == 0)
@@ -148,7 +141,7 @@ __SIZE_TYPE__ strlen(char const* s)
  this runs about 6.8 times faster than libc memcpy under Compiler Explorer.
 */
 
-using u8 = __UINT8_TYPE__;
+using u8 = __Uint8_TYPE__;
 using usize = __SIZE_TYPE__;
 
 __attribute__((always_inline)) static void* PtrAdd(void const* ptr, usize offset)
@@ -249,13 +242,13 @@ void* memcpy(void* dst, void const* src, usize length)
 //
 void* memchr(void const* s, int c, __SIZE_TYPE__ n)
 {
-    auto p = PCU8(s);
+    auto p = u8 const*(s);
 
     while ((n--) != 0)
         if (*p != U8(c))
             p++;
         else
-            return PVOID(p);
+            return void*(p);
     return nullptr;
 }
 
@@ -263,13 +256,13 @@ void* memchr(void const* s, int c, __SIZE_TYPE__ n)
 //
 //
 //
-int memcmp(PCVOID s1, PCVOID s2, USIZE n)
+int memcmp(void const* s1, void const* s2, usize n)
 {
-    auto p1 = PCU8(s1);
-    auto p2 = PCU8(s2);
+    auto p1 = u8 const*(s1);
+    auto p2 = u8 const*(s2);
 
     while (n-- > 0) {
-        int r = INT(UINT(*p1)) - INT(UINT(*p2));
+        int r = int(Uint(*p1)) - int(Uint(*p2));
         if (r)
             return r;
         p1++;
@@ -348,7 +341,7 @@ char* strncpy(char* __restrict__ dest, char const* __restrict__ src, __SIZE_TYPE
 // //
 // //
 // //
-USIZE wcslen(wchar_t const* start)
+usize wcslen(wchar_t const* start)
 {
     // NB: start is not checked for nullptr!
     wchar_t const* end = start;
@@ -356,10 +349,10 @@ USIZE wcslen(wchar_t const* start)
         ++end;
 
     [[assume(end > start)]];
-    return USIZE(end - start);
+    return usize(end - start);
 }
 
-USIZE wcsnlen(wchar_t const* start, USIZE n)
+usize wcsnlen(wchar_t const* start, usize n)
 {
 
     wchar_t const* end = start;
@@ -370,7 +363,7 @@ USIZE wcsnlen(wchar_t const* start, USIZE n)
     }
 
     [[assume(end > start)]];
-    return USIZE(end - start);
+    return usize(end - start);
 }
 
 //
@@ -394,11 +387,11 @@ int strncmp(char const* s1, char const* s2, __SIZE_TYPE__ n)
 {
     while (n--)
         if (*s1++ != *s2++)
-            return *PCU8(s1 - 1) - *PCU8(s2 - 1);
+            return *u8 const*(s1 - 1) - *u8 const*(s2 - 1);
     return 0;
 }
 
-PCHAR strchr(PCCHAR s, int c)
+char* strchr(char const* s, int c)
 {
     do {
         if (*s == c) {
@@ -408,10 +401,10 @@ PCHAR strchr(PCCHAR s, int c)
     return nullptr;
 }
 
-USIZE strcspn(PCCHAR s1, PCCHAR s2)
+usize strcspn(char const* s1, char const* s2)
 {
-    PCCHAR s = s1;
-    PCCHAR c;
+    char const* s = s1;
+    char const* c;
 
     while (*s1) {
         for (c = s2; *c; c++) {
@@ -423,23 +416,23 @@ USIZE strcspn(PCCHAR s1, PCCHAR s2)
         s1++;
     }
 
-    return USIZE(s1 - s);
+    return usize(s1 - s);
 }
 
-PCHAR _strdup(char const* s)
+char* _strdup(char const* s)
 {
-    USIZE len = strlen(s) + 1;
-    PVOID copyS = __builtin_malloc(len);
+    usize len = strlen(s) + 1;
+    void* copyS = __builtin_malloc(len);
 
     if (copyS == nullptr)
         return nullptr;
 
-    return PCHAR(__builtin_memcpy(copyS, s, len));
+    return char*(__builtin_memcpy(copyS, s, len));
 }
 
-PCHAR strpbrk(PCCHAR s1, PCCHAR s2)
+char* strpbrk(char const* s1, char const* s2)
 {
-    PCCHAR c = s2;
+    char const* c = s2;
 
     if (!*s1)
         return nullptr;
@@ -457,13 +450,13 @@ PCHAR strpbrk(PCCHAR s1, PCCHAR s2)
     if (*c == '\0')
         s1 = nullptr;
 
-    return const_cast<PCHAR>(s1);
+    return const_cast<char*>(s1);
 }
 
-USIZE strspn(PCCHAR s1, PCCHAR s2)
+usize strspn(char const* s1, char const* s2)
 {
-    PCCHAR s = s1;
-    PCCHAR c;
+    char const* s = s1;
+    char const* c;
 
     while (*s1) {
         for (c = s2; *c; c++) {
@@ -475,16 +468,16 @@ USIZE strspn(PCCHAR s1, PCCHAR s2)
         s1++;
     }
 
-    return USIZE(s1 - s);
+    return usize(s1 - s);
 }
 
 ///
 /// https://github.com/apache/mynewt-core/blob/master/libc/baselibc/src/memmem.c
 ///
-PVOID memmem(void const* haystack, size_t n, void const* needle, size_t m)
+void* memmem(void const* haystack, size_t n, void const* needle, size_t m)
 {
-    auto y = PCU8(haystack);
-    auto x = PCU8(needle);
+    auto y = u8 const*(haystack);
+    auto x = u8 const*(needle);
 
     size_t j, k, l;
 
@@ -506,31 +499,31 @@ PVOID memmem(void const* haystack, size_t n, void const* needle, size_t m)
                 j += k;
             } else {
                 if (!memcmp(x + 2, y + j + 2, m - 2) && x[0] == y[j])
-                    return PVOID(&y[j]);
+                    return void*(&y[j]);
                 j += l;
             }
         }
     } else
         do {
             if (*y == *x)
-                return PVOID(y);
+                return void*(y);
             y++;
         } while (--n);
 
     return nullptr;
 }
 
-PCHAR strstr(char const* haystack, char const* needle)
+char* strstr(char const* haystack, char const* needle)
 {
-    return PCHAR(memmem(haystack, strlen(haystack), needle, strlen(needle)));
+    return char*(memmem(haystack, strlen(haystack), needle, strlen(needle)));
 }
 
-PCHAR strnstr(char const* haystack, char const* needle, size_t len)
+char* strnstr(char const* haystack, char const* needle, size_t len)
 {
-    return PCHAR(memmem(haystack, strlen(haystack), needle, len));
+    return char*(memmem(haystack, strlen(haystack), needle, len));
 }
 
-PCHAR strsep(char** stringp, char const* delim)
+char* strsep(char** stringp, char const* delim)
 {
     char* s = *stringp;
     char* e;
@@ -546,7 +539,7 @@ PCHAR strsep(char** stringp, char const* delim)
     return s;
 }
 
-PCHAR strtok_r(PCHAR s, PCCHAR delim, char** holder)
+char* strtok_r(char* s, char const* delim, char** holder)
 {
     if (s)
         *holder = s;
@@ -591,7 +584,7 @@ int atoi(char const* s)
         switch (*s) {
         case '0' ... '9':
             if (__builtin_mul_overflow(result, 10, &result) || __builtin_add_overflow(result, -('0' - *s), &result))
-                return negate ? INT_MIN : INT_MAX;
+                return negate ? int_MIN : int_MAX;
             continue;
         default:
         }

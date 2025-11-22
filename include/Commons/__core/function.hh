@@ -22,10 +22,10 @@ template<typename>
 class CFunction;
 
 
-/**
- * @brief A wrapper for declaring C-style function pointer types.
- * Unlike Function, it can't keep a pointer to a lambda function that has captures.
- */
+///
+/// A wrapper for declaring C-style function pointer types.
+/// Unlike Function, it can't keep a pointer to a lambda function that has captures.
+///
 template<typename ReturnType_, typename... Args>
 class CFunction<ReturnType_(Args...)> {
 public:
@@ -60,6 +60,10 @@ private:
 template<typename>
 struct Function;
 
+///
+/// An extension of CFunction that can store capturing lambdas. It has the overhead of allocating a variable amount of
+/// data on the heap, however.
+///
 template<typename ReturnType, typename... Args>
 struct Function<ReturnType(Args...)>
 {
