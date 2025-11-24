@@ -1,14 +1,14 @@
 #pragma once
 
-#include <Commons/core.hh>
-#include <Commons/core.hh>
-#include <Commons/core.hh>
+#include <commons/core.hh>
+#include <commons/core.hh>
+#include <commons/core.hh>
 #include <cstring>
-#include "Commons/datastructs/ArrayIterator.hh"
-#include <Commons/core.hh>
-#include <Commons/core.hh>
-#include <Commons/core.hh>
-#include "Commons/datastructs/Collection.hh"
+#include "commons/datastructs/ArrayIterator.hh"
+#include <commons/core.hh>
+#include <commons/core.hh>
+#include <commons/core.hh>
+#include "commons/datastructs/Collection.hh"
 #include "FixedArray.hh"
 
 

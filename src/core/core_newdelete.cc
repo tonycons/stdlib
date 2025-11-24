@@ -1,6 +1,6 @@
-#include <Commons/core.hh>
-#include <Commons/gc/GC.hh>
-#include <Commons/core.hh>
+#include <commons/core.hh>
+#include <commons/gc/GC.hh>
+#include <commons/core.hh>
 #include <stdlib.h>
 using namespace cm;
 

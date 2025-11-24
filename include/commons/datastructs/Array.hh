@@ -13,9 +13,9 @@
 */
 
 #pragma once
-#include <Commons/core.hh>
-#include "Commons/datastructs/ArrayIterator.hh"
-#include <Commons/datastructs/Collection.hh>
+#include <commons/core.hh>
+#include "commons/datastructs/ArrayIterator.hh"
+#include <commons/datastructs/Collection.hh>
 
 
 namespace cm {

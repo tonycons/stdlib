@@ -13,8 +13,8 @@
    License for the specific language governing permissions and limitations under
    the License.
 */
-#include <Commons/core.hh>  // IWYU pragma: keep
-#include <Commons/system.hh>
+#include <commons/core.hh>  // IWYU pragma: keep
+#include <commons/system.hh>
 #include "../resources/OneCharStringTable.hh"
 #include <string.h>
 

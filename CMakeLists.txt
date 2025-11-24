@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
-project(Commons C CXX)
+project(commons C CXX)
 
 cmake_policy(SET CMP0048 NEW)
 cmake_policy(SET CMP0072 NEW)
@@ -14,13 +14,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(WS ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_library(Commons)
+add_library(commons)
 
 ##############################################################################################
 # Warning flags
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    target_compile_options(Commons PUBLIC
+    target_compile_options(commons PUBLIC
         -Weverything
         -fsafe-buffer-usage-suggestions
         -Wnonnull
@@ -44,7 +44,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         -Wno-bit-int-extension
     )
 elseif (CMAKECXX_COMPILER_ID STREQUAL "MSVC")
-    target_compile_options(Commons PUBLIC 
+    target_compile_options(commons PUBLIC 
         /W4
     )
 endif()
@@ -52,12 +52,12 @@ endif()
 ###############################################################################################
 # Include directories
 
-target_include_directories(Commons PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(commons PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 ###############################################################################################
 # Sources
 
-target_sources(Commons PUBLIC
+target_sources(commons PUBLIC
     ${PLATFORM_SRC}
     ${WS}/src/core/core_assert.cc
     ${WS}/src/core/core_cstring.cc
@@ -84,9 +84,9 @@ target_sources(Commons PUBLIC
     # ${WS}/src/gc/GCAllocation.cc
 )
 
-if(NOT DEFINED DONT_BUILD_Commons_TEST)
-    add_executable(Commons-test)
-    target_include_directories(Commons-test PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-    target_link_libraries(Commons-test Commons)
-    target_sources(Commons-test PUBLIC ${WS}/test/main.cc ${WS}/test/test_tokenizer.cc)
+if(NOT DEFINED DONT_BUILD_commons_TEST)
+    add_executable(commons-test)
+    target_include_directories(commons-test PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_link_libraries(commons-test commons)
+    target_sources(commons-test PUBLIC ${WS}/test/main.cc ${WS}/test/test_tokenizer.cc)
 endif()

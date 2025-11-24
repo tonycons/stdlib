@@ -1,4 +1,4 @@
-// #include <Commons/algorithm/parser/Alphabet.hh>
+// #include <commons/algorithm/parser/Alphabet.hh>
 
 
 // cm::parse::Alphabet::Alphabet(std::initializer_list<AlphabetEntry> const& e)

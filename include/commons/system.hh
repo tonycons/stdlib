@@ -18,7 +18,7 @@
 
 #include "core.hh"                // IWYU pragma: keep
 #include "datastructs/string.hh"  // IWYU pragma: keep
-#include "__system/Stream.hh"     // IWYU pragma: keep
+#include "system/Stream.hh"       // IWYU pragma: keep
 
 
 // TODO don't use these

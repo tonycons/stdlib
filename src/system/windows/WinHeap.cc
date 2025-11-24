@@ -1,7 +1,7 @@
 #include "WindowsNT.hh"  // IWYU pragma: keep
 #include "Win32Error.hh"
-#include <Commons/core.hh>
-#include <Commons/system/Profiler.hh>
+#include <commons/core.hh>
+#include <commons/system/Profiler.hh>
 
 
 #pragma GCC diagnostic push

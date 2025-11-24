@@ -13,8 +13,8 @@
 */
 
 
-#include <Commons/core.hh>
-#include <Commons/system.hh>
+#include <commons/core.hh>
+#include <commons/system.hh>
 #include <unistd.h>
 
 

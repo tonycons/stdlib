@@ -16,7 +16,7 @@
    are a pointer or an integer, even if they have the exact same bitpattern.
 */
 
-#include <Commons/core.hh>
+#include <commons/core.hh>
 #include <sanitizer/dfsan_interface.h>
 
 namespace cm::__gc {}  // namespace cm::__gc

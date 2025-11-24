@@ -14,8 +14,8 @@
 
 // Testing the speed of dynamic typing/garbage collection
 
-#include <Commons/io/print.hh>
-#include <Commons/dp/var.hh>
+#include <commons/io/print.hh>
+#include <commons/dp/var.hh>
 
 
 using namespace cm;

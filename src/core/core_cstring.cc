@@ -19,7 +19,7 @@
 #pragma GCC diagnostic ignored "-Wmissing-prototypes"
 #pragma GCC diagnostic ignored "-Wreserved-identifier"
 
-#include <Commons/core.hh>
+#include <commons/core.hh>
 
 
 using Uint = unsigned int;
@@ -242,13 +242,13 @@ void* memcpy(void* dst, void const* src, usize length)
 //
 void* memchr(void const* s, int c, __SIZE_TYPE__ n)
 {
-    auto p = u8 const*(s);
+    auto p = u8 const * (s);
 
     while ((n--) != 0)
         if (*p != U8(c))
             p++;
         else
-            return void*(p);
+            return void * (p);
     return nullptr;
 }
 
@@ -258,8 +258,8 @@ void* memchr(void const* s, int c, __SIZE_TYPE__ n)
 //
 int memcmp(void const* s1, void const* s2, usize n)
 {
-    auto p1 = u8 const*(s1);
-    auto p2 = u8 const*(s2);
+    auto p1 = u8 const * (s1);
+    auto p2 = u8 const * (s2);
 
     while (n-- > 0) {
         int r = int(Uint(*p1)) - int(Uint(*p2));
@@ -387,7 +387,7 @@ int strncmp(char const* s1, char const* s2, __SIZE_TYPE__ n)
 {
     while (n--)
         if (*s1++ != *s2++)
-            return *u8 const*(s1 - 1) - *u8 const*(s2 - 1);
+            return *u8 const * (s1 - 1) - *u8 const * (s2 - 1);
     return 0;
 }
 
@@ -427,7 +427,7 @@ char* _strdup(char const* s)
     if (copyS == nullptr)
         return nullptr;
 
-    return char*(__builtin_memcpy(copyS, s, len));
+    return char * (__builtin_memcpy(copyS, s, len));
 }
 
 char* strpbrk(char const* s1, char const* s2)
@@ -476,8 +476,8 @@ usize strspn(char const* s1, char const* s2)
 ///
 void* memmem(void const* haystack, size_t n, void const* needle, size_t m)
 {
-    auto y = u8 const*(haystack);
-    auto x = u8 const*(needle);
+    auto y = u8 const * (haystack);
+    auto x = u8 const * (needle);
 
     size_t j, k, l;
 
@@ -499,14 +499,14 @@ void* memmem(void const* haystack, size_t n, void const* needle, size_t m)
                 j += k;
             } else {
                 if (!memcmp(x + 2, y + j + 2, m - 2) && x[0] == y[j])
-                    return void*(&y[j]);
+                    return void * (&y[j]);
                 j += l;
             }
         }
     } else
         do {
             if (*y == *x)
-                return void*(y);
+                return void * (y);
             y++;
         } while (--n);
 
@@ -515,12 +515,12 @@ void* memmem(void const* haystack, size_t n, void const* needle, size_t m)
 
 char* strstr(char const* haystack, char const* needle)
 {
-    return char*(memmem(haystack, strlen(haystack), needle, strlen(needle)));
+    return char * (memmem(haystack, strlen(haystack), needle, strlen(needle)));
 }
 
 char* strnstr(char const* haystack, char const* needle, size_t len)
 {
-    return char*(memmem(haystack, strlen(haystack), needle, len));
+    return char * (memmem(haystack, strlen(haystack), needle, len));
 }
 
 char* strsep(char** stringp, char const* delim)

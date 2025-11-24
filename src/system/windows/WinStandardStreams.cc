@@ -13,7 +13,7 @@
 */
 
 #ifdef _WIN32
-#include <Commons/system/io/print.hh>
+#include <commons/system/io/print.hh>
 #include "WinStandardStreams.hh"
 #include "WindowsNT.hh"  // IWYU pragma: keep
 

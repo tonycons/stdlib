@@ -12,9 +12,9 @@
 // the License.
 // */
 
-// #include <Commons/datastructs/Array.hh>
+// #include <commons/datastructs/Array.hh>
 //
-// #include <Commons/system/Profiler.hh>
+// #include <commons/system/Profiler.hh>
 
 // namespace cm {
 

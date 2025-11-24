@@ -14,8 +14,8 @@ specific language governing permissions and limitations under the License.
 */
 
 #pragma once
-#include "Commons/datastructs/Collection.hh"  // IWYU pragma: keep
-#include <Commons/core.hh>
+#include "commons/datastructs/Collection.hh"  // IWYU pragma: keep
+#include <commons/core.hh>
 
 namespace cm {
 

@@ -14,9 +14,9 @@
 
 #pragma once
 #include "Array.hh"
-#include "Commons/datastructs/ByteVector.hh"
-#include <Commons/core.hh>
-#include <Commons/core.hh>
+#include "commons/datastructs/ByteVector.hh"
+#include <commons/core.hh>
+#include <commons/core.hh>
 
 
 namespace cm {

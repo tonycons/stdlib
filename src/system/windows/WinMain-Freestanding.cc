@@ -1,7 +1,7 @@
 #ifdef _WIN32
 
-#include <Commons/core.hh>
-#include <Commons/system/Profiler.hh>
+#include <commons/core.hh>
+#include <commons/system/Profiler.hh>
 #include "WindowsNT.hh"  // IWYU pragma: keep
 #include "WinStandardStreams.hh"
 #include "Win32Error.hh"  // IWYU pragma: keep

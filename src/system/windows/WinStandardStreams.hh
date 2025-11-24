@@ -12,8 +12,8 @@
    the License.
 */
 #pragma once
-#include <Commons/system/io/Stream.hh>
-#include <Commons/datastructs/Array.hh>
+#include <commons/system/io/Stream.hh>
+#include <commons/datastructs/Array.hh>
 
 namespace cm {
 

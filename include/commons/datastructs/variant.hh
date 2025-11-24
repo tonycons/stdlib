@@ -13,11 +13,11 @@ the License.
 */
 
 #pragma once
-#include <Commons/core.hh>
-#include <Commons/datastructs/Array.hh>
-#include <Commons/datastructs/string.hh>
-#include "Commons/gc/GCManaged.hh"
-#include <Commons/core.hh>
+#include <commons/core.hh>
+#include <commons/datastructs/Array.hh>
+#include <commons/datastructs/string.hh>
+#include "commons/gc/GCManaged.hh"
+#include <commons/core.hh>
 
 
 namespace cm {

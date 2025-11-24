@@ -1,4 +1,4 @@
-# My "Commons" standard library
+# My "commons" standard library
 
 ### A personal utility library for use in coding challenges, hacking, and future C++ projects. Implemented my own standard data structures, and several features from the Rust language.
 

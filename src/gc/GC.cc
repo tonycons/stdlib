@@ -12,10 +12,10 @@
    the License.
 */
 
-#include <Commons/gc/GC.hh>
-#include <Commons/core.hh>
-#include <Commons/system/Profiler.hh>
-#include <Commons/core.hh>
+#include <commons/gc/GC.hh>
+#include <commons/core.hh>
+#include <commons/system/Profiler.hh>
+#include <commons/core.hh>
 #include <sanitizer/dfsan_interface.h>
 #include <pthread.h>
 #pragma GCC diagnostic ignored "-Wunsafe-buffer-usage"

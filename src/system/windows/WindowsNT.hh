@@ -17,7 +17,7 @@
 #define nominmax
 #define NOMINMAX
 #include <Windows.h>
-#include <Commons/core.hh>
+#include <commons/core.hh>
 
 
 #define ATLAS_USE_WINDOWS_NT 0

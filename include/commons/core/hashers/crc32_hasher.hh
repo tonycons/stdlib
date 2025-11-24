@@ -1,5 +1,5 @@
 /*
-   Copyright 2024 Anthony A. Constantinescu.
+   Copyright 2025 Anthony A. Constantinescu.
 
    Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
    in compliance with the License. You may obtain a copy of the License at
@@ -36,7 +36,7 @@ struct Crc32
     constexpr static auto const& table()
     {
         constexpr static VectorU32x<256> tbl = {
-#include <Commons/Resources/crc32_castagnoli_table.csv>
+#include <commons/resources/crc32_castagnoli_table.csv>
         };
         return tbl;
     }

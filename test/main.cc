@@ -1,6 +1,6 @@
-#include <Commons/core.hh>
-#include <Commons/system.hh>
-#include "Commons/datastructs/Range.hh"
+#include <commons/core.hh>
+#include <commons/system.hh>
+#include "commons/datastructs/Range.hh"
 
 
 using namespace cm;
