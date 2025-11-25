@@ -203,6 +203,19 @@ public:
     }
 
     ///
+    /// Gets the active type of the union as type T, otherwise, if the active type is not T, returns a default value.
+    ///
+    template<typename T>
+    NODISCARD FORCEINLINE auto getOrDefault(T const& defaultValue) const noexcept
+    {
+        if (is<T>()) {
+            return const_cast<ConstRemoved<decltype(_ref<T>())>>(_ref<T>());
+        } else {
+            return defaultValue;
+        }
+    }
+
+    ///
     /// Returns the tag value.
     ///
     NODISCARD FORCEINLINE auto tag() const noexcept { return _tag; }

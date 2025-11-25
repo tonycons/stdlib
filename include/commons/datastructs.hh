@@ -16,6 +16,6 @@
 #include "core.hh"  // IWYU pragma: keep
 
 #define __inline_core_header__
-
-
+#include "datastructs/Array.hh"       // IWYU pragma: keep
+#include "datastructs/LinkedList.hh"  // IWYU pragma: keep
 #undef __inline_core_header__

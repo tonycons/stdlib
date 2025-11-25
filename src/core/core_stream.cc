@@ -3,7 +3,7 @@
 namespace cm {
 
 
-void Stream::_print(char const* sFmt, std::initializer_list<ConstRefWrapper<AnyRef>> const& objects) UNSAFE({
+void OutStream::_print(char const* sFmt, std::initializer_list<ConstRefWrapper<AnyRef>> const& objects) UNSAFE({
     char const* fmtPtr;
     auto iter = objects.begin();
 

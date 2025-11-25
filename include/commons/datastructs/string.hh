@@ -16,51 +16,17 @@
 #include "Array.hh"
 #include "commons/datastructs/ByteVector.hh"
 #include <commons/core.hh>
-#include <commons/core.hh>
 
 
 namespace cm {
-struct var;
-
-/*
- -
- -
-*/
-// struct StringPOD {
-//     union {
-//         u32 data_lo;
-//         u64 data;
-//         char const* ptr;
-//     } u;
-//     union {
-//         u64 data;
-//         struct {
-//             u64 length : 64 - 8;
-//             u64 is_ptr : 8;
-//         } attrib;
-//     } m_;
-// };
-
-// .
-
-struct [[gnu::packed]] EmbeddedString
-{
-    union {
-        u8 bytes[sizeof(ByteVector) - 1];
-        Vector<u8, sizeof(ByteVector) - 1> vector;
-    };
-};
-
-static_assert(sizeof(EmbeddedString) == sizeof(ByteVector));
-
 
 class String;
-
 using StringCRef = String const&;
 
 
 ///
-/// Inherit instead of making a type alias to have better compiler diagnostics.
+/// A non owning reference to a string.
+/// Note: Inheriting from ArrayRef<char> instead of making a type alias to have better compiler diagnostics.
 ///
 struct StringValue : ArrayRef<char>
 {
@@ -73,17 +39,20 @@ public:
     constexpr StringValue(char ch)
         : ArrayRef<char>(&this->_ch, 1), _ch(ch)
     {}
+
+    // Overload length and sizeBytes to account for the null terminator
+
+    constexpr auto length() const { return usize(::cm::max(0, isize(ArrayRef<char>::length()) - 1)); }
+    constexpr auto sizeBytes() const { return this->length() * sizeof(char); }
 };
 
-/*
- -
- -
-*/
+///
+/// A dynamic, heap-allocated string
+/// @see docs/String.md
+///
 class String : public LinearIteratorComponent<String, char>,  //
                public IEquatable<String> {
-    // ByteVector _bytes;
 
-    // Union<ByteVector, EmbeddedString> _data;
     ByteVector _data;
 
 public:

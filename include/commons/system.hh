@@ -18,18 +18,11 @@
 
 #include "core.hh"                // IWYU pragma: keep
 #include "datastructs/string.hh"  // IWYU pragma: keep
-#include "system/Stream.hh"       // IWYU pragma: keep
+#include "system/stream.hh"       // IWYU pragma: keep
 
-
-// TODO don't use these
-extern "C" int putchar(int);
-extern "C" int puts(char const*);
 
 namespace cm::io {
-
-
 void _emergencyPrint(char const* str);
-
 }  // namespace cm::io
 
 #undef __inline_sys_header__

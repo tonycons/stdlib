@@ -92,7 +92,9 @@ void ByteVector::insert(size_t index, void const* bytes, size_t nBytes)
 {
     Assert(index <= _length, ASMS_INVALID(index));
     Assert(bytes, ASMS_INVALID(bytes));
-    Assert(nBytes, ASMS_INVALID(nBytes));
+    if (nBytes == 0) {
+        return;
+    }
     _ensureDataOnHeap();
     if (_length + nBytes >= _capacity) {
         auto prevCapacity = _capacity;

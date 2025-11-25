@@ -30,7 +30,7 @@ cm::Optional<cm::Shell&> const cm::shell = _shell;
 static auto _escapeCommand(cm::String const& command) { return command.replace("\"", "\\\""); }
 
 
-int cm::LinuxShell::execute(String const& command, Optional<Stream&> const& output)
+int cm::LinuxShell::execute(String const& command, Optional<OutStream&> const& output)
 {
     __builtin_printf("Command is this: %s\n", command.cstr());
     auto s = _escapeCommand(command);

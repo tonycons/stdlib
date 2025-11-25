@@ -1,5 +1,5 @@
 #include <commons/core.hh>
-#include <commons/gc/GC.hh>
+// #include <commons/gc/GC.hh>
 #include <commons/core.hh>
 #include <stdlib.h>
 using namespace cm;

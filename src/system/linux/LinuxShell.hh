@@ -22,7 +22,7 @@ public:
     LinuxShell() = default;
     ~LinuxShell() override = default;
 
-    virtual int execute(String const& command, Optional<Stream&> const& output) override;
+    virtual int execute(String const& command, Optional<OutStream&> const& output) override;
 };
 
 }  // namespace cm

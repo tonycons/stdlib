@@ -29,7 +29,19 @@ int levenshteinDistance(StringValue s1, StringValue s2)
 
 int main()
 {
+    // Example 1
     auto ld = levenshteinDistance;
     stdout->println("`", {ld("Hello", "hoLle"), ld("Hello", "heLlo"), ld("Hello", "Gello"), ld("kitten", "sitting")});
+
+
+    // Example 2: simple file access
+
+    if (auto bob = FileOutStream("bob.txt"); bob->ok()) {
+        bob->println("Hello from Bob!");
+        stdout->println("bob exists. Check bob for hello!");
+    } else {
+        stdout->println("Can't open bob!");
+    }
+
     return 0;
 }

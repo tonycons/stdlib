@@ -15,29 +15,21 @@
 #pragma once
 #ifdef __inline_core_header__
 
-
-/**
- * Returns true if a pointer is pointing to data in program ROM (.text or .data section)
- * If true, we know that the data has infinite lifetime, and won't change throughout the program's runtime.
- * This can enable some optimizations.
- */
-inline static bool commons_isRomData(void const* address)
+inline static bool __ptr_is_rodata(void const* address)  // NOLINT
 {
-
 #if __linux__
-    /* Holy shit this is such a nice, clean hack and I love it.
-     */
     extern char const etext, edata, end;
     return address >= &etext && address < &end;
 #else
-#error "Not implemented yet!"
+#warning "Not implemented yet!"
+    return false;
 #endif
 }
 
-
 namespace cm {
 
-enum Access : unsigned int {
+
+enum Access : u8 {
     READ_BIT = 1,
     WRITE_BIT = 1 << 1,
     EXECUTE_BIT = 1 << 2,
@@ -49,23 +41,22 @@ struct Ptr
 {
     Ptr(void* base, usize n_bytes);
 
-    /**
-     * Returns true if a pointer is pointing to data in program ROM (.text or .data section)
-     * If true, we know that the data has infinite lifetime. This can enable some optimizations (see ResizableArray)
-     */
-    inline static bool isRomData(void const* address) { return commons_isRomData(address); }
+    ///
+    /// Returns true if a pointer is an address to program ROM (.text or .data section)
+    /// If true, we know that the data has infinite lifetime, and won't change throughout the program's runtime.
+    /// This can enable some optimizations.
+    /// @param address The address to check
+    ///
+    inline static bool isRomData(void const* address) { return __ptr_is_rodata(address); }
 
     /**
      * Returns the access permissions for a range of memory.
      * @note In the case that some areas of the range have different permissions, it will return the lowest set of
      * permissions (that is, the level of access that is common to all areas)
      */
-    static unsigned int getAccessBits(void* base, usize n_bytes) noexcept;
+    static u8 getAccessBits(void* base, usize n_bytes) noexcept;
 
-    static unsigned int leastPermissiveAccess(unsigned int access0, unsigned int access1) noexcept
-    {
-        return access0 & access1;
-    }
+    static u8 leastPermissiveAccess(u8 access0, u8 access1) noexcept { return access0 & access1; }
 
     inline static bool canRead(void* base, usize n_bytes) noexcept
     {

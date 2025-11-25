@@ -17,7 +17,10 @@
 
 namespace cm {
 
-class LinuxStandardOutStream : public Stream {
+///
+/// Linux implementation for a stream that writes to standard output
+///
+class LinuxStandardOutStream : public OutStream {
 private:
     bool _state;
 
@@ -25,19 +28,23 @@ public:
     LinuxStandardOutStream() = default;
     ~LinuxStandardOutStream() override = default;
 
-    virtual Stream& writeBytes(void const* data, size_t sizeBytes) override;
-    virtual Stream& flush() override;
+    virtual OutStream& writeBytes(void const* data, size_t sizeBytes) override;
+    virtual OutStream& flush() override;
 
 protected:
     virtual int _fd() const;
 };
 
-class LinuxStandardErrStream final : public LinuxStandardOutStream {
+///
+/// Linux implementation for a stream that writes to standard error
+///
+class LinuxStandardErrOutStream final : public LinuxStandardOutStream {
     int _fd() const override;
 };
 
 extern LinuxStandardOutStream _stdout;
-extern LinuxStandardErrStream _stderr;
+extern LinuxStandardErrOutStream _stderr;
+
 
 }  // namespace cm
 

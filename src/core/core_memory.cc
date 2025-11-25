@@ -1,20 +1,28 @@
-#include <commons/core.hh>
-#include <commons/core.hh>
+/*
+   Copyright 2025 Anthony A. Constantinescu.
 
+   Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+   in compliance with the License. You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software distributed under the License
+   is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+   or implied. See the License for the specific language governing permissions and limitations under
+   the License.
+*/
+
+#include <commons/core.hh>
 
 #ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
+#include <commons/system/win32lite.hh>
 #endif
 
 
 namespace cm {
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
-
-
-unsigned int Ptr::getAccessBits(void* base, usize n_bytes) noexcept
+UNSAFE_BEGIN;
+u8 Ptr::getAccessBits(void* base, usize n_bytes) noexcept
 {
 #if __linux__
     // TODO
@@ -68,30 +76,6 @@ unsigned int Ptr::getAccessBits(void* base, usize n_bytes) noexcept
     return Access::READ_WRITE_BITS;
 #endif
 }
-
-#pragma clang diagnostic pop
-
-
-// static std::unordered_map<size_t, uint32_t> _cmap;
-
-void _checksumStore(void const* addr, __UINT32_TYPE__ checksum)
-{
-    (void)addr;
-    (void)checksum;
-    //_cmap[size_t(addr)] = checksum;
-}
-
-__UINT32_TYPE__ _checksumGet(void const* addr)
-{
-    // return _cmap[size_t(addr)];
-    (void)addr;
-    return 0;
-}
-
-void _checksumRemove(void const* addr)
-{
-    // _cmap.erase(size_t(addr));
-    (void)addr;
-}
+UNSAFE_END;
 
 }  // namespace cm

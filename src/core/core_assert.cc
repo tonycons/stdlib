@@ -14,7 +14,7 @@
 // #pragma clang diagnostic push
 // #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
-// auto& stream = System::getStandardErrStream();
+// auto& stream = System::getStandardErrOutStream();
 // stream.directWriteBytes("ASSERTION FAILED: ", sizeof("ASSERTION FAILED: "))
 //     .directWriteBytes(msg.cstr(), msg.sizeBytes())
 //     .directWriteBytes("\nat ", sizeof("\nat "))

@@ -20,20 +20,53 @@ namespace cm {
 /**
  * Interface for streaming data to a target.
  */
-class Stream {
+class OutStream {
 public:
-    /**
-     * Represents the error states of the stream.
-     */
-    enum : uint64_t {
-        STATE_FAILED_WRITE = 1,
-        STATE_FAILED_FLUSH = 2,
-        STATE_NOT_ALL_BYTES_FLUSHED = 4
+    ///
+    /// Bitmask representing the error states of the stream.
+    ///
+    enum Status : u64 {
+        STATUS_OK = 0,
+        STATUS_FAILED_INIT = (1 << 0),
+        STATUS_FAILED_WRITE = (1 << 1),
+        STATUS_FAILED_FLUSH = (1 << 2),
+        STATUS_NOT_ALL_BYTES_FLUSHED = (1 << 3),
+
+        // The last operation failed because the stream is invalid
+        STATUS_ERR_INVALID = (1 << 4),
+
+        // The last operation was interrupted by a signal before it could complete.
+        STATUS_ERR_INTERRUPT = (1 << 5),
+
+        // The last operation failed due to an I/O error.
+        STATUS_ERR_IO = (1 << 6),
+
+        // The last operation failed due to an unknown error.
+        STATUS_ERR_UNKNOWN = (1 << 7),
+
+        STATUS_ERR_ACCESS = (1 << 8),
+        STATUS_ERR_BUSY = (1 << 9),
+        STATUS_ERR_QUOTA = (1 << 10),
+
+        STATUS_ERR_ALREADY_EXISTS = (1 << 11),
+
+        // The operation failed because the type of the stream might not support that operation.
+        STATUS_ERR_UNSUPPORTED = (1 << 12),
+
+        STATUS_ERR_LOOP = (1 << 13),
+        STATUS_ERR_LIMIT = (1 << 14),
+
+        STATUS_ERR_NOT_FOUND = (1 << 15),
+        STATUS_ERR_MEMORY = (1 << 16),
+
+
+        // The last operation failed for any reason
+        STATUS_ANY_ERR = 0xffff'ffff'ffff'fffe,
     };
 
-    /**
-     * Represents the OS-dependent line separator.
-     */
+    ///
+    /// Represents the OS-dependent line separator.
+    ///
     constexpr static StringValue LINE_SEPARATOR =
 #ifdef _WIN32
         "\r\n";
@@ -43,24 +76,40 @@ public:
         "\n";
 #endif
 
-    virtual ~Stream() = default;
+    virtual ~OutStream() = default;
 
-    /**
-     * Adds a series of bytes to the currently pending data.
-     * @param data The data
-     * @param sizeBytes The data size
-     */
-    virtual auto writeBytes(void const* data, size_t sizeBytes) -> Stream& = 0;
+    ///
+    /// Adds a series of bytes to the currently pending data.
+    /// @param data The data
+    /// @param sizeBytes The data size
+    ///
+    virtual auto writeBytes(void const* data, size_t sizeBytes) -> OutStream& = 0;
 
-    /**
-     * Sends all pending data to the target.
-     */
-    virtual auto flush() -> Stream& = 0;
+    ///
+    /// Sends all pending data to the target.
+    ///
+    virtual auto flush() -> OutStream& = 0;
 
-    /**
-     * Print a value to the stream.
-     * @param arg The value
-     */
+    ///
+    /// Closes the stream. Returns a bitmask indicating the success of the close operation.
+    /// It's an error to write anything to the stream after close() is called and true is returned, even for streams
+    /// where close() does nothing (such as StringStream).
+    /// For streams where close() does nothing (such as StringStream), close() returns true
+    ///
+    inline virtual Result<Status, Status> close() { return Ok(STATUS_OK); }
+
+    ///
+    /// Get the general status of the stream
+    ///
+    inline virtual Status status() const { return STATUS_OK; }
+
+
+    inline bool ok() { return status() == STATUS_OK; }
+
+    ///
+    /// Print a value to the stream.
+    /// @param arg The value
+    ///
     void print(auto const& value)
     {
         auto str = String::valueOf(value);
@@ -127,41 +176,43 @@ private:
 ///
 /// Defines a stream that just writes to some string
 ///
-struct StringStream : public Stream
+struct StringStream : public OutStream
 {
+    StringStream() = delete;
     StringStream(String& to)
         : _to(to)
     {}
     ~StringStream() override = default;
 
-    virtual Stream& writeBytes(void const* data, size_t sizeBytes) override
+    virtual OutStream& writeBytes(void const* data, size_t sizeBytes) override
     {
         _to.insert(_to.length(), String(static_cast<char const*>(data), sizeBytes));
         return *this;
     }
 
-    virtual Stream& flush() override { return *this; }
+    virtual OutStream& flush() override { return *this; }
 
 private:
     String& _to;
 };
 
+
 ///
 /// An Optional standard output stream.
 /// It may be set to None on systems that don't have a standard output stream.
 ///
-extern Optional<Stream&> const stdout;
+extern Optional<OutStream&> const stdout;
 
 ///
 /// An Optional standard error stream.
 /// It may be set to None on systems that don't have a standard error stream.
 ///
-extern Optional<Stream&> const stderr;
+extern Optional<OutStream&> const stderr;
 
 struct Shell
 {
     virtual ~Shell() = default;
-    virtual int execute(String const& command, Optional<Stream&> const& output = stdout) = 0;
+    virtual int execute(String const& command, Optional<OutStream&> const& output = stdout) = 0;
 };
 
 ///
@@ -170,6 +221,16 @@ struct Shell
 ///
 extern Optional<Shell&> const shell;
 
+///
+/// Creates a stream that writes to a file
+///
+struct FileOutStream : public Optional<OutStream&>
+{
+    using Optional<OutStream&>::Optional;
+
+    FileOutStream(String const& path, Optional<usize> const& bufferCapacity = 4_KB);
+    ~FileOutStream();
+};
 
 }  // namespace cm
 #endif

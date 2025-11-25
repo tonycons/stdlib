@@ -3,7 +3,7 @@
 #include <commons/core.hh>
 #include <commons/system/Profiler.hh>
 #include "WindowsNT.hh"  // IWYU pragma: keep
-#include "WinStandardStreams.hh"
+#include "WinStandardOutStream.hh"
 #include "Win32Error.hh"  // IWYU pragma: keep
 
 // idgaf about warnings in this file
@@ -29,9 +29,9 @@ static char* argv[64];
 static void (*atexit_entries[64])();
 static int num_atexit_entries;
 static cm::Win32StandardOutStream* _win32_stdout;
-static cm::Win32StandardErrStream* _win32_stderr;
+static cm::Win32StandardErrOutStream* _win32_stderr;
 static UINT8 _win32_stdout_data[sizeof(cm::Win32StandardOutStream)];
-static UINT8 _win32_stderr_data[sizeof(cm::Win32StandardErrStream)];
+static UINT8 _win32_stderr_data[sizeof(cm::Win32StandardErrOutStream)];
 
 // fluff: Just random symbols and functions clang expects to exist on windows.
 
@@ -144,7 +144,7 @@ void mainCRTStartup()
     InitializeSRWLock(&s_heapLock);
     num_atexit_entries = 0;
     _win32_stdout = new (_win32_stdout_data) cm::Win32StandardOutStream();
-    _win32_stderr = new (_win32_stderr_data) cm::Win32StandardErrStream();
+    _win32_stderr = new (_win32_stderr_data) cm::Win32StandardErrOutStream();
 
     // Initialize the command line
     initArgcArgv();
@@ -181,12 +181,12 @@ extern "C" void _purecall() { cm::panic("purecall", "", {}); }
 ///
 /// edit 5/8/2025
 ///
-auto cm::System::getStandardOutStream() -> Stream& { return *_win32_stdout; }
+auto cm::System::getStandardOutStream() -> OutStream& { return *_win32_stdout; }
 
 ///
 /// edit 5/8/2025
 ///
-auto cm::System::getStandardErrStream() -> Stream& { return *_win32_stderr; }
+auto cm::System::getStandardErrOutStream() -> OutStream& { return *_win32_stderr; }
 
 
 /*

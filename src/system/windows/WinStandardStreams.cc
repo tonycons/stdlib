@@ -14,13 +14,13 @@
 
 #ifdef _WIN32
 #include <commons/system/io/print.hh>
-#include "WinStandardStreams.hh"
+#include "WinStandardOutStream.hh"
 #include "WindowsNT.hh"  // IWYU pragma: keep
 
 ///
 /// edit 5/8/2025
 ///
-auto cm::Win32StandardOutStream::writeBytes(void const* data, i32 sizeBytes) -> Stream&
+auto cm::Win32StandardOutStream::writeBytes(void const* data, i32 sizeBytes) -> OutStream&
 {
 
     _buffer.append(reinterpret_cast<char const*>(data), sizeBytes / static_cast<i32>(sizeof(char)));
@@ -30,7 +30,7 @@ auto cm::Win32StandardOutStream::writeBytes(void const* data, i32 sizeBytes) -> 
 ///
 /// edit 5/9/2025
 ///
-auto cm::Win32StandardOutStream::flush() -> Stream&
+auto cm::Win32StandardOutStream::flush() -> OutStream&
 {
 
     DWORD bytesWritten;
@@ -67,7 +67,7 @@ auto cm::Win32StandardOutStream::_getHandle() -> HANDLE { return ::GetStdHandle(
 ///
 /// edit 5/8/2025
 ///
-auto cm::Win32StandardErrStream::_getHandle() -> HANDLE { return ::GetStdHandle(STD_ERROR_HANDLE); }
+auto cm::Win32StandardErrOutStream::_getHandle() -> HANDLE { return ::GetStdHandle(STD_ERROR_HANDLE); }
 
 ///
 /// edit 5/9/2025

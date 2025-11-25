@@ -12,12 +12,12 @@
    the License.
 */
 #pragma once
-#include <commons/system/io/Stream.hh>
+#include <commons/system/io/stream.hh>
 #include <commons/datastructs/Array.hh>
 
 namespace cm {
 
-class Win32StandardOutStream : public Stream {
+class Win32StandardOutStream : public OutStream {
 private:
     void* _handle;
     bool _state;
@@ -27,18 +27,18 @@ public:
     Win32StandardOutStream() = default;
     ~Win32StandardOutStream() override = default;
 
-    virtual Stream& writeBytes(void const* data, i32 sizeBytes) override;
-    virtual Stream& flush() override;
+    virtual OutStream& writeBytes(void const* data, i32 sizeBytes) override;
+    virtual OutStream& flush() override;
 
 protected:
     virtual void* _getHandle();
 };
 
-class Win32StandardErrStream : public Win32StandardOutStream {
+class Win32StandardErrOutStream : public Win32StandardOutStream {
     void* _getHandle() override;
 };
 
 using PtrWin32StandardOutStream = Win32StandardOutStream*;
-using PtrWin32StandardErrStream = Win32StandardErrStream*;
+using PtrWin32StandardErrOutStream = Win32StandardErrOutStream*;
 
 }  // namespace cm

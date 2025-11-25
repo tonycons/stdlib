@@ -2,23 +2,26 @@
 
 #pragma GCC diagnostic ignored "-Weverything"
 
-#include "WinStandardStreams.hh"
+#include "WinStandardOutStream.hh"
 #include "WindowsNT.hh"
 
 
 static u8 s_StandardOutStream[sizeof(cm::Win32StandardOutStream)];
-static u8 s_StandardErrStream[sizeof(cm::Win32StandardErrStream)];
+static u8 s_StandardErrOutStream[sizeof(cm::Win32StandardErrOutStream)];
 extern int appMain(int argc, char** argv);
 
 ///
 ///
 ///
-auto cm::System::getStandardOutStream() -> Stream& { return *PtrWin32StandardOutStream(s_StandardOutStream); }
+auto cm::System::getStandardOutStream() -> OutStream& { return *PtrWin32StandardOutStream(s_StandardOutStream); }
 
 ///
 ///
 ///
-auto cm::System::getStandardErrStream() -> Stream& { return *PtrWin32StandardErrStream(s_StandardErrStream); }
+auto cm::System::getStandardErrOutStream() -> OutStream&
+{
+    return *PtrWin32StandardErrOutStream(s_StandardErrOutStream);
+}
 
 ///
 ///
@@ -27,12 +30,12 @@ int main(int argc, char** argv)
 {
     using namespace cm;
     new (s_StandardOutStream) Win32StandardOutStream();
-    new (s_StandardErrStream) Win32StandardErrStream();
+    new (s_StandardErrOutStream) Win32StandardErrOutStream();
 
     int code = appMain(argc, argv);
 
     PtrWin32StandardOutStream(s_StandardOutStream)->~Win32StandardOutStream();
-    PtrWin32StandardErrStream(s_StandardErrStream)->~Win32StandardErrStream();
+    PtrWin32StandardErrOutStream(s_StandardErrOutStream)->~Win32StandardErrOutStream();
     return code;
 }
 
