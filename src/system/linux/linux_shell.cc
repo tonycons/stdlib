@@ -13,12 +13,27 @@
    License for the specific language governing permissions and limitations under
    the License.
 */
-#include <fcntl.h>
+
 #ifdef __linux__
-#include "LinuxShell.hh"
+#include <commons/system.hh>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
+
+
+namespace cm {
+
+class LinuxShell : public Shell {
+public:
+    LinuxShell() = default;
+    ~LinuxShell() override = default;
+
+    virtual int execute(String const& command, Optional<OutStream&> const& output) override;
+};
+
+}  // namespace cm
+
 
 static auto _shell = cm::LinuxShell();
 cm::Optional<cm::Shell&> const cm::shell = _shell;
@@ -32,9 +47,9 @@ static auto _escapeCommand(cm::String const& command) { return command.replace("
 
 int cm::LinuxShell::execute(String const& command, Optional<OutStream&> const& output)
 {
-    __builtin_printf("Command is this: %s\n", command.cstr());
+    //__builtin_printf("Command is this: %s\n", command.cstr());
     auto s = _escapeCommand(command);
-    stdout->println("escaped: `", s);
+    // stdout->println("escaped: `", s);
     FILE* fp = popen(s.cstr(), "r");
     if (fp == NULL) {
         return -1;  // TODO

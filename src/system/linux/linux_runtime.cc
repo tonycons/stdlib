@@ -15,8 +15,7 @@
 
 #include <commons/core.hh>
 #include <commons/system.hh>
-#include <unistd.h>
-
+#include <commons/system/syscall_linux.inl>
 
 [[noreturn]]
 void ::cm::panic(char const* message, char const* reason, SourceLocation src)
@@ -27,28 +26,29 @@ void ::cm::panic(char const* message, char const* reason, SourceLocation src)
     if (reason == nullptr)
         reason = "";
 
-    write(STDERR_FILENO, "\x1B[31m", sizeof("\x1B[31m"));
-    write(STDERR_FILENO, message, __builtin_strlen(message));
+    auto write = [](char const* str, usize len) {
+        LinuxSyscall(LinuxSyscall.write, 2, u64(str), len);
+    };
+    write("\x1B[31m", sizeof("\x1B[31m"));
+    write(message, __builtin_strlen(message));
 
     if (src.function() != nullptr || src.file() != nullptr) {
-        write(STDERR_FILENO, " in ", 4);
+        write((" in "), 4);
     }
     if (src.function() != nullptr) {
-        write(STDERR_FILENO, src.function(), __builtin_strlen(src.function()));
+        write((src.function()), __builtin_strlen(src.function()));
     }
     if (src.file() != nullptr) {
-        write(STDERR_FILENO, " at \"", 5);
-        write(STDERR_FILENO, src.file(), __builtin_strlen(src.file()));
-        write(STDERR_FILENO, "\"", 1);
+        write((" at \""), 5);
+        write(src.file(), __builtin_strlen(src.file()));
+        write("\"", 1);
     }
     if (reason != nullptr) {
-        write(STDERR_FILENO, ".\n\treason: ", 11);
-        write(STDERR_FILENO, reason, __builtin_strlen(reason));
+        write(".\n\treason: ", 11);
+        write(reason, __builtin_strlen(reason));
     }
-
     Profiler::printStackTrace();
-
-    write(STDERR_FILENO, "\x1B[0m", sizeof("\x1B[0m"));
+    write("\x1B[0m", sizeof("\x1B[0m"));
     __builtin_trap();
     //_exit(-1);
 }

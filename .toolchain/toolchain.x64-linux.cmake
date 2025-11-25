@@ -87,9 +87,9 @@ add_link_options(
 
 set(WS ${CMAKE_CURRENT_LIST_DIR}/../src)
 set(PLATFORM_SRC 
-    ${WS}/system/linux/LinuxPanic.cc
-    ${WS}/system/linux/LinuxStandardStreams.cc 
-    ${WS}/system/linux/LinuxShell.cc 
+    ${WS}/system/linux/linux_runtime.cc
+    ${WS}/system/linux/linux_streams.cc 
+    ${WS}/system/linux/linux_shell.cc 
 )
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY NEVER)

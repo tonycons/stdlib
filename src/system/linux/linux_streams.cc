@@ -14,9 +14,9 @@
    the License.
 */
 
-#include "commons/system/syscall_linux.inl"
 #ifdef __linux__
-#include "LinuxStandardStreams.hh"
+#include "linux_streams.hh"
+#include "commons/system/syscall_linux.inl"
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>

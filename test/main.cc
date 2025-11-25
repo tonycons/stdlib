@@ -33,7 +33,6 @@ int main()
     auto ld = levenshteinDistance;
     stdout->println("`", {ld("Hello", "hoLle"), ld("Hello", "heLlo"), ld("Hello", "Gello"), ld("kitten", "sitting")});
 
-
     // Example 2: simple file access
 
     if (auto bob = FileOutStream("bob.txt"); bob->ok()) {
