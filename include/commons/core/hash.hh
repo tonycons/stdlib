@@ -17,6 +17,7 @@
 
 namespace cm {
 
+UNSAFE_BEGIN;
 
 ///
 /// Defines basic hashing functions given a hasher implementation
@@ -34,7 +35,6 @@ struct Hash
     using SeedType = Hasher::SeedType;
 
     template<typename T>
-    requires (!IsClass<T> && (!IsUnderlyingTypeOneOf<T, char*, wchar_t*, char8_t*, char16_t*, char32_t*>))
     constexpr inline static HashResult hash(T in, SeedType seed = DEFAULT_SEED)
     {
         if constexpr (IsUnderlyingTypeOneOf<T, char*, wchar_t*, char8_t*, char16_t*, char32_t*>) {
@@ -82,4 +82,6 @@ private:
 using DefaultHasher = Hash<Crc32>;
 
 }  // namespace cm
+
+UNSAFE_END
 #endif

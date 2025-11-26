@@ -10,12 +10,20 @@
    is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
    or implied. See the License for the specific language governing permissions and limitations under
    the License.
+
+   File: commons/datastructs.hh
+   Description: Exports all of the data structures
 */
 
 #pragma once
 #include "core.hh"  // IWYU pragma: keep
 
 #define __inline_core_header__
-#include "datastructs/Array.hh"       // IWYU pragma: keep
-#include "datastructs/LinkedList.hh"  // IWYU pragma: keep
+#include "datastructs/range.hh"         // IWYU pragma: keep
+#include "datastructs/array.hh"         // IWYU pragma: keep
+#include "datastructs/array_list.hh"    // IWYU pragma: keep
+#include "datastructs/string.hh"        // IWYU pragma: keep
+#include "datastructs/linked_list.hh"   // IWYU pragma: keep
+#include "datastructs/sparse_array.hh"  // IWYU pragma: keep
+#include "datastructs/map.hh"           // IWYU pragma: keep
 #undef __inline_core_header__

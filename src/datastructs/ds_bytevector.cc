@@ -13,7 +13,7 @@
 */
 
 
-#include <commons/datastructs/ByteVector.hh>
+#include <commons/datastructs/array_list.hh>
 #include <commons/core.hh>
 #include <commons/core.hh>
 #include <string.h>
@@ -27,6 +27,8 @@ ByteVector::ByteVector(void const* ptr, usize len) noexcept
     Assert(len, ASMS_INVALID(len));
 
     if (Ptr::isRomData(ptr)) {
+        // This optimization (checking if the pointer has infinite lifetime) means it is unnecessary to make a copy of
+        // the data (until it gets modified, then make a copy)
         _data = static_cast<u8*>(const_cast<void*>(ptr));
         _length = _capacity = len;
         _needheap = true;

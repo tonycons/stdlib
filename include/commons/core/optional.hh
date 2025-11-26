@@ -200,6 +200,11 @@ struct Optional
         return this->_bit ? _u._value.get() : static_cast<T>(Forward<U>(x));
     }
 
+    ///
+    ///
+    ///
+    constexpr static void outputString(Optional const& self, auto const& out);
+
 private:
     bool _bit;
     union _storedValue {

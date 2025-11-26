@@ -14,8 +14,8 @@
 
 #pragma once
 #include <commons/core.hh>
-#include "commons/datastructs/ArrayIterator.hh"
-#include <commons/datastructs/Collection.hh>
+#include "commons/datastructs/array_iterator.hh"
+#include <commons/datastructs/collection.hh>
 
 
 namespace cm {
@@ -67,9 +67,14 @@ protected:
 public:
     using ElementType = T;
 
+    ///
+    /// Default constructor
+    ///
     Array() = default;
 
-
+    ///
+    /// Destructor
+    ///
     ~Array()
     {
         if constexpr (L == ARRAY_LENGTH_UNSPECIFIED) {
@@ -182,6 +187,7 @@ public:
 
     ///
     /// Returns a new array which contains this array's elements repeated n times.
+    /// @param count the number of times to repeat
     ///
     auto times(Index const& count)
     {
@@ -196,27 +202,19 @@ public:
         return newArray;
     }
 
-    /**
-     *
-     */
-    constexpr T& operator[](Index i) UNSAFE({ return Base::_data[i.compute(*this)]; });
+    ///
+    /// Bounds-checking index operator.
+    ///
+    constexpr auto& operator[](this auto&& self, Index i) UNSAFE({ return self._data[i.compute(self)]; });
 
-    constexpr T const& operator[](Index i) const UNSAFE({ return Base::_data[i.compute(*this)]; });
+    ///
+    /// Returns a pointer to the underlying array's buffer
+    ///
+    constexpr inline auto data(this auto&& self) { return &self._data[0]; }
 
-
-    /**
-     *
-     */
-    constexpr inline T* data() { return &Base::_data[0]; }
-
-    /**
-     *
-     */
-    constexpr inline T const* data() const { return &Base::_data[0]; }
-
-    /**
-     *
-     */
+    ///
+    /// Returns the number of elements in the array.
+    ///
     constexpr inline auto length() const
     {
         if constexpr (L != ARRAY_LENGTH_UNSPECIFIED) {
@@ -226,33 +224,31 @@ public:
         }
     }
 
-    /**
-     *
-     */
+    ///
+    /// Returns the total size bytes of the elements in the array.
+    ///
     constexpr inline auto sizeBytes() const { return length() * sizeof(T); }
 
-    /**
-     *
-     */
-    constexpr void forEach(auto visitor)
+    ///
+    /// Calls a function on each element of the array.
+    /// @param visitor A function to call on each element
+    ///
+    constexpr void forEach(this auto&& self, auto visitor)
     {
-        for (auto& e : *this) {
+        for (auto& e : self) {
             visitor(e);
         }
     }
 
-    /**
-     *
-     */
-    constexpr void forEach(auto visitor) const
+    ///
+    /// Generates a string representation for the Array.
+    /// @param array The array
+    /// @param out A function that sequentially receives each character in the string representation of array.
+    ///
+    constexpr static auto outputString(Array<T, L> const& array, auto const& out)
     {
-        for (auto const& e : *this) {
-            visitor(e);
-        }
+        ArrayRef<T>(array).outputString(array, out);
     }
-
-    constexpr static auto outputString(Array<T, L> const& a, auto const& out) { ArrayRef<T>(a).outputString(a, out); }
-
 
     ///
     /// For each index I in indices, return the array such that array[I] = setter(I).
@@ -324,15 +320,25 @@ public:
         }
     }
 
-
+    ///
+    /// An alias for operator[]
+    ///
     constexpr auto element(this auto&& self, usize row) { return self[row]; }
+
+    ///
+    /// An alias for operator[] for a 2D array
+    ///
     constexpr auto element(this auto&& self, usize row, usize col) { return self[row][col]; }
 
-    /**
-     *
-     */
+    ///
+    /// Index operator that does not perform bounds checking.
+    ///
     constexpr auto& operator()(Index i) UNSAFE({ return Base::_data[i.computeUnchecked(*this)]; });
     constexpr auto const& operator()(Index i) const { UNSAFE(return Base::_data[i.computeUnchecked(*this)];) }
+
+    ///
+    /// 2D Indexing operator that does not perform bounds checking.
+    ///
     constexpr auto const& operator()(Index row, auto const& col) const
     {
         UNSAFE(return Base::_data[row.computeUnchecked(*this)][col];)
@@ -344,6 +350,16 @@ template<typename T>
 Array(std::initializer_list<T> const&) -> Array<T, ARRAY_LENGTH_UNSPECIFIED>;
 
 
+///
+/// Utility function for initializing a 2D Array (i.e. an array of arrays). Note that this is nesting arrays inside of
+/// an array, so it is not a contiguous block of memory.
+/// It's more like a "jagged array" https://en.wikipedia.org/wiki/Irregular_matrix
+///
+/// For a 2D array where each element resides in a contiguous block of memory, choose Matrix2D instead.
+/// @param rows How many rows
+/// @param cols How many cols
+/// @return An empty array of arrays
+///
 template<typename T>
 constexpr auto Array2D(auto rows, auto cols)
 {

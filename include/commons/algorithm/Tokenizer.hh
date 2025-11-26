@@ -3,7 +3,7 @@
 // #include "commons/algorithm/parser/Alphabet.hh"
 // #include "commons/algorithm/parser/Token.hh"
 // #include "commons/datastructs/string.hh"
-// #include "commons/datastructs/LinkedList.hh"
+// #include "commons/datastructs/linked_list.hh"
 
 
 // namespace cm::parse {

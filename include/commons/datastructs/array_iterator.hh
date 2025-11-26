@@ -22,82 +22,82 @@
 namespace cm {
 
 
-/**
- * Iterator
- */
+///
+/// Iterator
+///
 template<typename Container, typename T>
 class LinearIterator {
 public:
-    /**
-     * Iterator to the next element.
-     */
+    ///
+    /// Iterator to the next element.
+    ///
     constexpr auto next() const { return LinearIterator(_array, _index + 1); }
 
-    /**
-     * Iterator to the previous element.
-     */
+    ///
+    /// Iterator to the previous element.
+    ///
     constexpr auto prev() const { return LinearIterator(_array, _index - 1); }
 
-    /**
-     * Checks if there exists an element before the current.
-     */
+    ///
+    /// Checks if there exists an element before the current.
+    ///
     constexpr bool hasPrev() const { return (_index > 0) && (_index < _array->length()); }
 
-    /**
-     * Checks if there exists an element after the current.
-     */
+    ///
+    /// Checks if there exists an element after the current.
+    ///
     constexpr bool hasNext() const { return _index < min(_array->length() - 1, 0u); }
 
-    /**
-     * Moves the iterator to the next element.
-     * If there is no next element, the behavior is undefined.
-     */
+    ///
+    /// Moves the iterator to the next element.
+    /// If there is no next element, the behavior is undefined.
+    ///
     constexpr LinearIterator& operator++() { return (*this = this->next()); }
 
-    /**
-     * Moves the iterator to the previous element.
-     * If there is no previous element, the behavior is undefined.
-     */
+    ///
+    /// Moves the iterator to the previous element.
+    /// If there is no previous element, the behavior is undefined.
+    ///
     constexpr LinearIterator& operator--() { return (*this = this->prev()); }
 
-    /**
-     * Access the current element.
-     */
+    ///
+    /// Access the current element.
+    ///
     constexpr T const& operator*() const noexcept { return _get(); }
 
-    /**
-     * Access the current element.
-     */
+    ///
+    /// Access the current element.
+    ///
     constexpr T& operator*() noexcept { return _get(); }
 
-    /**
-     * Access the current element.
-     */
+    ///
+    /// Access the current element.
+    ///
     constexpr T const* operator->() const noexcept { return &_get(); }
 
-    /**
-     * Access the current element.
-     */
+    ///
+    /// Access the current element.
+    ///
     constexpr T* operator->() noexcept { return &_get(); }
 
-    /**
-     * Check if iterators are equal.
-     */
+    ///
+    /// Check if iterators are equal.
+    ///
     constexpr bool operator==(LinearIterator const& other) const
         UNSAFE({ return _array->data() + _index == other._array->data() + other._index; });
 
-    /**
-     * Inserts elements at the current position.
-     * The existing elements at the current position, and all after it, will be shifted forward by the amount of
-     * elements. The iterator will point to the same location in the array after insert().
-     */
+    ///
+    /// Inserts elements at the current position.
+    /// The existing elements at the current position, and all after it, will be shifted forward by the amount of
+    /// elements. The iterator will point to the same location in the array after insert().
+    ///
     void insert(T const& value) { _array->insert(_index, value); }
 
-    /**
-     * Removes the element at the current position.
-     * Any elements after the current element will be shifted back by one position.
-     * The iterator will point to the same location in the array after remove().
-     */
+    ///
+    /// Removes the element at the current position.
+    /// Any elements after the current element will be shifted back by one position.
+    /// The iterator will point to the same location in the array after remove().
+    ///
     void remove() { _array->erase(_index); }
 
     constexpr LinearIterator(Container const* array, size_t index)
@@ -118,14 +118,14 @@ private:
     size_t _index;
 };
 
-/**
- * Provides linear iterator functionality to a derived class.
- * A derived class using this component must implement:
- * length(): returns the number of elements
- * operator[]: accesses an element by index
- * insert(i, E): inserts an element E at index i
- * erase(i): Removes the element at index i
- */
+///
+/// Provides linear iterator functionality to a derived class.
+/// A derived class using this component must implement:
+/// length(): returns the number of elements
+/// operator[]: accesses an element by index
+/// insert(i, E): inserts an element E at index i
+/// erase(i): Removes the element at index i
+///
 template<class Derived, class T>
 class LinearIteratorComponent {
     using DP = Derived*;
@@ -134,58 +134,58 @@ class LinearIteratorComponent {
 public:
     using Iterator = LinearIterator<Derived, T>;
 
-    /**
-     * Iterator pointing to the first element.
-     */
+    ///
+    /// Iterator pointing to the first element.
+    ///
     constexpr auto begin() { return Iterator(DP(this), 0); }
 
-    /**
-     * Iterator pointing to the first element.
-     */
+    ///
+    /// Iterator pointing to the first element.
+    ///
     constexpr auto begin() const { return Iterator(DCP(this), 0); }
 
-    /**
-     * Iterator pointing to one past the last element.
-     */
+    ///
+    /// Iterator pointing to one past the last element.
+    ///
     constexpr auto end() { return Iterator(DP(this), DCP(this)->length()); }
 
-    /**
-     * Iterator pointing to one past the last element.
-     */
+    ///
+    /// Iterator pointing to one past the last element.
+    ///
     constexpr auto end() const { return Iterator(DCP(this), DCP(this)->length()); }
 
-    /**
-     * Iterator pointing to the first element. Same as begin().
-     */
+    ///
+    /// Iterator pointing to the first element. Same as begin().
+    ///
     constexpr auto first() { return this->begin(); }
 
-    /**
-     * Iterator pointing to the first element. Same as begin().
-     */
+    ///
+    /// Iterator pointing to the first element. Same as begin().
+    ///
     constexpr auto first() const { return this->begin(); }
 
-    /**
-     * Iterator pointing to the last element.
-     */
+    ///
+    /// Iterator pointing to the last element.
+    ///
     constexpr auto last() { return Iterator(DP(this), DCP(this)->length() - 1); }
 
-    /**
-     * Iterator pointing to the last element.
-     */
+    ///
+    /// Iterator pointing to the last element.
+    ///
     constexpr auto last() const { return Iterator(DCP(this), DCP(this)->length() - 1); }
 
-    /**
-     * @return an iterator to a specific index.
-     */
+    ///
+    /// @return an iterator to a specific index.
+    ///
     constexpr auto at(size_t index)
     {
         DP(this)->operator[](index);  // This causes bounds checking to be performed
         return Iterator(this, index);
     }
 
-    /**
-     * @return an iterator to a specific index.
-     */
+    ///
+    /// @return an iterator to a specific index.
+    ///
     constexpr auto at(size_t index) const
     {
         DCP(this)->operator[](index);

@@ -43,6 +43,14 @@ protected:
 }  // namespace impl
 
 
+///
+/// An array that is optimized for having most of its elements zero or empty.
+/// In other words, it functions as an extremely large array where an element at a given index are most likely zero or
+/// empty. Its index bounds are [0, 2^N - 1] where N is the number of bits in the index.
+///
+/// This implementation uses a binary tree where each leaf in the tree is a slice of bits from the index value.
+///
+UNSAFE_BEGIN
 template<typename Type>
 struct SparseArray
 {
@@ -55,7 +63,7 @@ public:
 
     ~SparseArray()
     {
-        forEach([](Type* ptr) { delete ptr; });
+        forEach([](auto const& ptr) { delete ptr; });
     }
 
     void clear()
@@ -89,8 +97,8 @@ public:
         //_Pragma("clang loop unroll(disable)")  //
         for (int _ = 0; _ < 7; _++, index >>= 8) {
             auto i = static_cast<u8>(index);
-            ptr[i] = !ptr[i] ? (Type*)(new Type*[256]{}) : ptr[i];
-            ptr = (Type**)ptr[i];
+            ptr[i] = !ptr[i] ? reinterpret_cast<Type*>(new Type*[256]{}) : ptr[i];
+            ptr = reinterpret_cast<Type**>(ptr[i]);
         }
         auto i = static_cast<u8>(index);
         if (!ptr[i]) {
@@ -164,3 +172,4 @@ public:
 
 
 }  // namespace cm
+UNSAFE_END

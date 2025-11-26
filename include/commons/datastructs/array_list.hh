@@ -20,7 +20,11 @@
 
 namespace cm {
 
-
+///
+/// A structure that functions similarly to a std::vector<unsigned char>.
+/// Its purpose is to implement a "growable" piece of contiguous memory.
+/// For a typed equivalent (the closest thing to std::vector<T>), see StructVector<T> below.
+///
 struct ByteVector : IEquatable<ByteVector>
 {
 private:
@@ -55,9 +59,17 @@ public:
 
 
 ///
+/// @brief StructVector is a "growable" piece of contiguous memory like ByteVector, except it is specialized to hold
+/// structs of a specific type.
+/// However, the structs stored in this collection must be trivial/standard layout types. Meaning:
+///   * no custom copy constructors, destructors, assignment operators, or default constructors that do anything other
+///   than set the data to zero
+///     In other words,
+///     * The copy constructor and assignment should be functionally equivalent to memcpy(structA, structB,
+///     sizeof(structure))
+///     * Default constructor should be functionally equivalent to memset(structure, 0, sizeof(structure))
+///     * Destructor dos nothing
 ///
-/// IMPORTANT - This is meant to be used for trivial and standard layout types.
-/// Meaning- no special copy constructors
 /// Why? Here's three reasons
 /// #1 --
 /// When appending, a Vector may reallocate its internal storage.
@@ -72,11 +84,11 @@ public:
 /// The collections ONLY DIFFER IN THE TIME COMPLEXITY OF CERTAIN OPERATIONS.
 /// I would like to preserve this design philosophy in my implementation.
 ///
-/// If we allow the Vector to store "complex objects," then as I mentioned before, append() has the possibility of
-/// causing reallocation, which means all other objects are copy constructed and then destroyed. But with a linked list,
-/// because it is not a contiguous memory sequence, append() will never cause that to happen. This is bad. What does
-/// append do-- Append "inserts an element at the end of the collection." That's all it should do. An append should do
-/// the same thing regardless of what type of collection it is for. Yet as we can see here, that is clearly not the
+/// If we allow the Vector to store "complex objects" in-place, then as I mentioned before, append() has the possibility
+/// of causing reallocation, which means all other objects are copy constructed and then destroyed. But with a linked
+/// list, because it is not a contiguous memory sequence, append() will never cause that to happen. This is bad. What
+/// does append do-- Append "inserts an element at the end of the collection." That's all it should do. An append should
+/// do the same thing regardless of what type of collection it is for. Yet as we can see here, that is clearly not the
 /// case. Append on a Vector has side effects on the stored data, but append on a LinkedList does not.
 /// This is just bad software design, especially if we write generic algorithms where we assume the type of the
 /// collection does not matter for performing a specific functions.
@@ -90,33 +102,25 @@ public:
 /// then there is 5x more code.
 /// Banning complex objects makes the implementation simpler and allows for better performance.
 ///
+template<typename T>
+struct StructVector : private ByteVector
+{
+    StructVector() = default;
 
-// struct StructVector : private ByteVector
-// {
-//     StructVector() = default;
+    FORCEINLINE void append(T const& value)
+    {
+        ByteVector::insert(ByteVector::length() - sizeof(value), &value, sizeof(value));
+    }
 
+    FORCEINLINE void repeat(size_t n)
+    {
+        while (n-- != 0) {
+            ByteVector::append(*this);
+        }
+    }
 
-// FORCEINLINE void append(int const& value)
-// {
-//     ByteVector::insert(ByteVector::length() - sizeof(value), &value, sizeof(value));
-// }
-
-// FORCEINLINE void repeat(size_t n)
-// {
-//     while (n-- != 0) {
-//         ByteVector::append(*this);
-//     }
-// }
-
-// FORCEINLINE void
-// };
-
-
-// static_assert(TriviallyDestructible<ByteVector>);
-// static_assert(TriviallyCopyConstructible<ByteVector>);
-// static_assert(TriviallyDefaultConstructible<ByteVector>);
-
-// static_assert(IsPrimitiveData<ByteVector>);
+    // TODO: implement
+};
 
 
 }  // namespace cm

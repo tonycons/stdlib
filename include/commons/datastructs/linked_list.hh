@@ -14,7 +14,7 @@ specific language governing permissions and limitations under the License.
 */
 
 #pragma once
-#include "commons/datastructs/Collection.hh"  // IWYU pragma: keep
+#include "commons/datastructs/collection.hh"  // IWYU pragma: keep
 #include <commons/core.hh>
 
 namespace cm {
@@ -125,16 +125,5 @@ struct DLList : protected impl::DLList::Container
     }
 };
 
-// template<typename T>
-// class UniChain;
-
-// namespace CollectionType {
-// template<typename T>
-// class UniChain : public Collection<UniChain<T>> {
-// public:
-//     using ItsElementType = T;
-//     using ItsType = ::cm::UniChain<T>;
-// };
-// }
 
 }  // namespace cm

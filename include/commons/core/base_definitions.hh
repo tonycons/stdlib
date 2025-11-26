@@ -147,8 +147,10 @@ struct Pair
 {
     A first;
     B second;
-    Pair(A const& first, B const& second)
-        : first(first), second(second)
+
+    constexpr Pair() = default;
+    constexpr Pair(A const& a, B const& b)
+        : first(a), second(b)
     {}
 };
 

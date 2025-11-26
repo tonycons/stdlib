@@ -14,7 +14,7 @@ the License.
 
 #pragma once
 #include <commons/core.hh>
-#include <commons/datastructs/Array.hh>
+#include <commons/datastructs/array.hh>
 #include <commons/datastructs/string.hh>
 #include "commons/gc/GCManaged.hh"
 #include <commons/core.hh>

@@ -12,7 +12,7 @@
    the License.
 */
 
-#include <commons/datastructs/SparseArray.hh>
+#include <commons/datastructs/Sparsearray.hh>
 
 
 namespace cm {

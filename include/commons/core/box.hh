@@ -115,5 +115,24 @@ constexpr void ArrayRef<T>::outputString(ArrayRef<T> const& a, auto const& out)
     out(']');
 }
 
+template<typename T>
+requires (!__is_same(T, NoneType))
+constexpr void Optional<T>::outputString(Optional<T> const& self, auto const& out)
+{
+    if (self.hasValue()) {
+        // auto const& value = self.value();
+        // Box(value).outputString(value, out);
+        out('g');
+        out('o');
+        out('o');
+        out('d');
+    } else {
+        out('N');
+        out('o');
+        out('n');
+        out('e');
+    }
+}
+
 }  // namespace cm
 #endif

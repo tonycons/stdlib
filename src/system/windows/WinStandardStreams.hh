@@ -13,7 +13,7 @@
 */
 #pragma once
 #include <commons/system/io/stream.hh>
-#include <commons/datastructs/Array.hh>
+#include <commons/datastructs/array.hh>
 
 namespace cm {
 

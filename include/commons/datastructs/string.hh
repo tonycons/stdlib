@@ -13,8 +13,8 @@
 */
 
 #pragma once
-#include "Array.hh"
-#include "commons/datastructs/ByteVector.hh"
+#include "array.hh"
+#include "commons/datastructs/array_list.hh"
 #include <commons/core.hh>
 
 

@@ -12,7 +12,7 @@
 // the License.
 // */
 
-// #include <commons/datastructs/Array.hh>
+// #include <commons/datastructs/array.hh>
 //
 // #include <commons/system/Profiler.hh>
 
