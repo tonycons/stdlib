@@ -14,77 +14,29 @@
 
 #pragma once
 #ifdef __inline_core_header__
-#include <sys/types.h>
 
 
 namespace cm {
-
-///
-/// An abstraction over array indices that allows negative indices to index from the end of the array like in python
-/// Initializing an index with an unsigned integer works as expected
-/// Initializing with a negative signed integer creates an index relative to the last element.
-/// Index -1 refers to the last element.
-///
-struct Index : Union<ssize_t, size_t>
-{
-    using Union<ssize_t, size_t>::Union;
-
-    ///
-    /// Returns an unsigned index into an array. Does not check if the index is in bounds.
-    /// @param a The array to compute the index for.
-    ///
-    NODISCARD FORCEINLINE constexpr auto computeUnchecked(auto const& a) const
-    {
-        size_t i_ = match(
-            [&](size_t k) { return k; },
-            [&](ssize_t k) {  // Possible negative index
-                return k < 0 ? size_t(ssize_t(a.length()) + k) : size_t(k);
-            });
-        return i_;
-    }
-
-    ///
-    /// Returns an unsigned index into an array. Checks if the index is in bounds.
-    /// @param a The array to compute the index for.
-    ///
-    NODISCARD FORCEINLINE constexpr auto compute(auto const& a) const
-    {
-        size_t i = computeUnchecked(a);
-        Assert(i < a.length(), ASMS_BOUNDS);
-        return i;
-    }
-
-    ///
-    /// Asserts that the index is not negative, and if so, returns the index as an unsigned integer.
-    ///
-    NODISCARD FORCEINLINE constexpr usize assertPositive() const
-    {
-        size_t i = match(
-            [&](size_t k) { return k; },
-            [&](ssize_t k) {
-                Assert(k >= 0, ASMS_PARAMETER);
-                return size_t(k);
-            });
-        return i;
-    }
-};
 
 
 ///
 /// A non-owning reference to an array
 ///
 template<typename T>
-struct ArrayRef
+struct ArrayRef : public LinearIteratorComponent<ArrayRef<T>, T const>,
+                  public IEquatable<ArrayRef<T>>,
+                  public IComparable<ArrayRef<T>>
 {
-    T* _ptr;
+    T const* _ptr;
     size_t _length;
 
     ///
     /// Constructor from pointer and length
     ///
-    FORCEINLINE explicit constexpr ArrayRef(T* ptr_, size_t length_) noexcept
+    FORCEINLINE explicit constexpr ArrayRef(T const* ptr_, size_t length_) noexcept
         : _ptr(ptr_), _length(length_)
     {}
+
     ///
     /// Constructor from initializer list
     ///
@@ -124,15 +76,10 @@ struct ArrayRef
     ///
     NODISCARD FORCEINLINE constexpr auto sizeBytes() const noexcept { return _length * sizeof(T); }
 
-    /// First element.
-    NODISCARD FORCEINLINE constexpr T const* begin() const noexcept { return _ptr; }
-    /// One past the last element.
-    NODISCARD FORCEINLINE constexpr T const* end() const noexcept { return UNSAFE(_ptr + _length); }
-
     /// Returns a pointer to the array data
     NODISCARD FORCEINLINE constexpr T const* data() const noexcept { return _ptr; }
     /// Returns a pointer to the array data
-    NODISCARD FORCEINLINE constexpr T* data() noexcept { return _ptr; }
+    /// NODISCARD FORCEINLINE constexpr T* data() noexcept { return _ptr; }
 
     ///
     /// Returns the smallest element in the array.
@@ -158,20 +105,183 @@ struct ArrayRef
         return m;
     }
 
-    constexpr static void outputString(ArrayRef<T> const& a, auto const& out);
+    ///
+    /// Generates a string representation of an ArrayRef. Outputs (within square brackets) the string representation of
+    /// each element in the array, delimited by commas.
+    ///
+    constexpr static void outputString(ArrayRef<T> const& self, auto const& out)
+    {
+        out('[');
+        if (self.length() != 0) {
+            usize i = 0;
+            for (; i < self.length() - 1; i++) {
+                auto const& value = self(i);
+                OutputString(value, out);
+                out(',');
+                out(' ');
+            }
+            for (; i < self.length(); i++) {
+                auto const& value = self(i);
+                OutputString(value, out);
+            }
+        }
+        out(']');
+    }
+
+    ///
+    /// Performs a deep equality comparison of two arrays.
+    ///
+    constexpr bool equals(this ArrayRef<T> const& self, ArrayRef<T> const& other)
+    {
+        if (&self == &other) {
+            return true;
+        }
+        if (self.length() != other.length()) {
+            return false;
+        }
+        // Generic comparison loop
+        auto cmp = [&]() constexpr {
+            for (auto i : Range(self.length())) {
+                if (self(i) != other(i)) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        if consteval {
+            // At compile time, use the generic version
+            return cmp();
+        } else {
+            // At runtime, select the C library memcmp if possible, which is highly optimized.
+            if constexpr (IsPrimitiveData<T>) {
+                UNSAFE_BEGIN;
+                return __builtin_memcmp(self.data(), other.data(), self.sizeBytes()) == 0;
+                UNSAFE_END;
+            } else {
+                return cmp();
+            }
+        }
+    }
+
+    ///
+    /// Performs a deep equality comparison of two arrays that **attempts** to mitigate timing vulnerabilities.
+    /// Generally slower than equals(), but ensures that comparison always takes the same amount of time for a given
+    /// array length.
+    ///
+    constexpr bool equalsTimesafe(this ArrayRef<T> const& self, ArrayRef<T> const& other)
+    {
+        // No early return as that is a timing vulnerability.
+        i64 remaining = i64(other.length());
+        i64 i = 0;
+
+        int notEqual = 0;
+        while (i < i64(self.length())) {
+            notEqual |= (self(i) != other(i));
+            ++i;
+            --remaining;
+        }
+        return !notEqual && (remaining == 0);
+    }
+
+    ///
+    /// Performs a deep comparison of two arrays.
+    ///
+    constexpr int compare(this ArrayRef<T> const& self, ArrayRef<T> const& other)
+    {
+        if (&self == &other) {
+            return 0;
+        }
+        if (self.length() != other.length()) {
+            return Compare(self.length(), other.length());
+        }
+        // Generic comparison loop
+        auto cmp = [&]() constexpr {
+            for (auto i : Range(self.length())) {
+                if (self(i) < other(i)) {
+                    return -1;
+                } else if (self(i) > other(i)) {
+                    return 1;
+                }
+            }
+            return 0;
+        };
+        if consteval {
+            // At compile time, use the generic version
+            return cmp();
+        } else {
+            // At runtime, select the C library memcmp if possible, which is highly optimized.
+            if constexpr (IsPrimitiveData<T>) {
+                UNSAFE_BEGIN;
+                return __builtin_memcmp(self.data(), other.data(), self.sizeBytes());
+                UNSAFE_END;
+            } else {
+                return cmp();
+            }
+        }
+    }
+
+    ///
+    /// Performs a deep comparison of two arrays that **attempts** to mitigate timing vulnerabilities.
+    /// Generally slower than compare(), but ensures that comparison always takes the same amount of time for a given
+    /// array length.
+    ///
+    constexpr int compareTimesafe(this ArrayRef<T> const& self, ArrayRef<T> const& other)
+    {
+        // No early return as that is a timing vulnerability.
+        i64 remaining = i64(other.length());
+        i64 i = 0;
+        int notEqual = 0;
+        int sign = 0;
+
+        while (i < i64(self.length())) {
+            int compared = Compare(self(i), other(i));
+            notEqual |= (compared != 0);
+            // Once sign is set, it cannot be changed.
+            sign |= (compared * (sign == 0));
+            ++i;
+            --remaining;
+        }
+        return (notEqual * sign) - !!remaining;
+    }
+
+    /*
+
+
+    int memcmp_timesafe(void const* self, void const* other, size_t len)
+    {
+        size_t i = 0;
+        int notEqual = 0;
+        int sign = 0;
+
+        while (i < len) {
+            int comparison = Compare(self(i), other(i));
+            notEqual |= (comparison != 0);
+            // Once sign is set, it cannot be changed.
+            sign |= (comparison * (sign == 0));
+            ++i;
+        }
+        return !notEqual * sign;
+    }
+
+
+    */
 };
+
+
+///
+/// Deduction guides for ArrayRef
+///
 
 template<typename T>
 ArrayRef(T*, size_t) -> ArrayRef<T>;
 
 template<typename T>
-ArrayRef(std::initializer_list<T> const&) -> ArrayRef<T>;
+ArrayRef(std::initializer_list<T>&&) -> ArrayRef<T>;
 
 template<typename T, unsigned N>
 ArrayRef(T const (&literal)[N]) -> ArrayRef<T>;
 
 
-using StringRef = ArrayRef<char>;
-
 }  // namespace cm
+
 #endif

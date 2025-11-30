@@ -19,28 +19,35 @@
 #define __inline_core_header__
 
 #include "core/base_definitions.hh"     // IWYU pragma: keep
+#include "core/range.hh"                // IWYU pragma: keep
 #include "core/reflection_type.hh"      // IWYU pragma: keep
+#include "core/comparable.hh"           // IWYU pragma: keep
+#include "core/generator.hh"            // IWYU pragma: keep
 #include "core/initializer_list.hh"     // IWYU pragma: keep
 #include "core/tuple.hh"                // IWYU pragma: keep
 #include "core/reflection_function.hh"  // IWYU pragma: keep
 #include "core/function.hh"             // IWYU pragma: keep
 #include "core/intbase.hh"              // IWYU pragma: keep
+#include "core/assert.hh"               // IWYU pragma: keep
+#include "core/union.hh"                // IWYU pragma: keep
 #include "core/result.hh"               // IWYU pragma: keep
 #include "core/optional.hh"             // IWYU pragma: keep
 #include "core/errors.hh"               // IWYU pragma: keep
-#include "core/assert.hh"               // IWYU pragma: keep
 #include "core/profiler.hh"             // IWYU pragma: keep
-#include "core/union.hh"                // IWYU pragma: keep
-#include "core/defer.hh"                // IWYU pragma: keep
 
-#include "core/arrayref.hh"    // IWYU pragma: keep
-#include "core/math_int.hh"    // IWYU pragma: keep
-#include "core/math_float.hh"  // IWYU pragma: keep
-#include "core/box.hh"         // IWYU pragma: keep
+
+#include "core/array_iterator.hh"  // IWYU pragma: keep
+#include "core/index.hh"           // IWYU pragma: keep
+#include "core/arrayref.hh"        // IWYU pragma: keep
+#include "core/string_ref.hh"      // IWYU pragma: keep
+#include "core/math_int.hh"        // IWYU pragma: keep
+#include "core/math_float.hh"      // IWYU pragma: keep
+#include "core/pointer.hh"         // IWYU pragma: keep
+#include "core/box.hh"             // IWYU pragma: keep
 
 #include "core/property.hh"  // IWYU pragma: keep
 #include "core/rng.hh"       // IWYU pragma: keep
-#include "core/pointer.hh"   // IWYU pragma: keep
+
 
 #include "core/hash.hh"            // IWYU pragma: keep
 #include "core/data_integrity.hh"  // IWYU pragma: keep

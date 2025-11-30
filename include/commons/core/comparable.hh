@@ -13,22 +13,22 @@
 */
 
 #pragma once
-#include <commons/core.hh>
+#ifdef __inline_core_header__
 
 namespace cm {
 
-/*
- Typeless predicate for comparing.
- Should return a negative integer if the first element is less than the second;
- A positive integer if the first element is greater than the second;
- Zero if the elements are equal.
-*/
+///
+/// Typeless predicate for comparing.
+/// Should return a negative integer if the first element is less than the second;
+/// A positive integer if the first element is greater than the second;
+/// Zero if the elements are equal.
+///
 using Comparator = int (*)(void const*, void const*);
 
-/*
- Comparable interface. Derived must implement: int compare(Derived)-
- which returns 0 if equal, 1 if greater than, -1 if less than.
-*/
+///
+/// Comparable interface. Automatically implements all of the comparison operators for a derived class, provided one
+/// function is implemented in Derived. int compare(Derived)- which returns 0 if equal, 1 if greater, -1 if less.
+///
 template<typename Derived>
 struct IComparable
 {
@@ -39,13 +39,13 @@ struct IComparable
         return t1->compare(*t2);
     };
 
-    constexpr inline bool operator<(auto x) const { return static_cast<Derived const*>(this)->compare(x) < 0; }
+    constexpr inline bool operator<(auto const& x) const { return static_cast<Derived const*>(this)->compare(x) < 0; }
 
-    constexpr inline bool operator>(auto x) const { return static_cast<Derived const*>(this)->compare(x) > 0; }
+    constexpr inline bool operator>(auto const& x) const { return static_cast<Derived const*>(this)->compare(x) > 0; }
 
-    constexpr inline bool operator<=(auto x) const { return static_cast<Derived const*>(this)->compare(x) <= 0; }
+    constexpr inline bool operator<=(auto const& x) const { return static_cast<Derived const*>(this)->compare(x) <= 0; }
 
-    constexpr inline bool operator>=(auto x) const { return static_cast<Derived const*>(this)->compare(x) >= 0; }
+    constexpr inline bool operator>=(auto const& x) const { return static_cast<Derived const*>(this)->compare(x) >= 0; }
 
     constexpr inline bool lessThanAny(auto... args) const { return ((this->operator<(args)) || ...); }
 
@@ -64,26 +64,63 @@ struct IComparable
     constexpr inline bool greaterEqualThanAll(auto... args) const { return ((this->operator>=(args)) && ...); }
 };
 
+///
+/// Defines whether a type has every comparison operator.
+///
 template<typename A, typename B = A>
 concept IsFullyComparable = requires (A a, B b) {
-    {
-        a == b
-    } -> IsSame<bool>;
-    {
-        a != b
-    } -> IsSame<bool>;
-    {
-        a < b
-    } -> IsSame<bool>;
-    {
-        a <= b
-    } -> IsSame<bool>;
-    {
-        a > b
-    } -> IsSame<bool>;
-    {
-        a >= b
-    } -> IsSame<bool>;
+    { a == b } -> IsSame<bool>;
+    { a != b } -> IsSame<bool>;
+    { a < b } -> IsSame<bool>;
+    { a <= b } -> IsSame<bool>;
+    { a > b } -> IsSame<bool>;
+    { a >= b } -> IsSame<bool>;
 };
 
+///
+/// Defines whether a type has the .compare member function.
+///
+template<typename A>
+concept HasCompareMemberFunction = requires (A a1, A a2) {
+    { a1.compare(a2) } -> IsSame<int>;
+};
+
+///
+/// Generic comparison function.
+/// Returns 0 if two given objects are equal, -1 if the first object is less than the second object, and 1 otherwise.
+/// @param a The first object
+/// @param b The second object
+///
+constexpr int Compare(auto const& a, auto const& b)
+{
+    if constexpr (HasCompareMemberFunction<decltype(a)>) {
+        // If these are objects, this might be more efficient than comparing them using the operators
+        return a.compare(b);
+    } else {
+        if (a == b) {
+            return 0;
+        } else if (a < b) {
+            return -1;
+        } else {
+            return 1;
+        }
+    }
+}
+
+///
+/// Compare() when given pointers would compare the memory addresses themselves.
+/// ComparePointed dereferences the two pointer arguments and then compares them, otherwise, it behaves like Compare.
+/// @param a The first object
+/// @param b The second object
+///
+constexpr int ComparePointed(auto const& a, auto const& b)
+{
+    if constexpr (IsPointer<decltype(a)> || IsPointer<decltype(b)>) {
+        return Compare(*a, *b);
+    } else {
+        return Compare(a, b);
+    }
+}
+
 }  // namespace cm
+#endif

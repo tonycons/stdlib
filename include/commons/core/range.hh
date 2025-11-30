@@ -13,25 +13,13 @@
 */
 
 #pragma once
-#include "collection.hh"
 
 
 namespace cm {
 
-template<typename T>
-class Range;
 
 template<typename T>
-class RangeCollectionInheritor {
-public:
-    using ItsElementType = T;
-
-    template<typename SomeType = T>
-    using ItsType = Range<T>;
-};
-
-template<typename T>
-class Range : public Collection<RangeCollectionInheritor<T>> {
+class Range {
 public:
     struct DefaultStep
     {};

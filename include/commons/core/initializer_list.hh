@@ -152,6 +152,8 @@ template<typename T, unsigned N>
 CVArray(T const (&)[N]) -> CVArray<T, N>;
 
 
+namespace CArrays {
+
 /**
  * @brief Moves data (which may be overlapping) to a new memory location, mostly used in ResizableArray
 
@@ -189,7 +191,7 @@ constexpr void moveDataToNewRegion(T* dst, T const* src, size_t n)
 }
 
 template<typename T>
-constexpr bool compareEq(T const* a, T const* b, size_t n)
+constexpr bool equal(T const* a, T const* b, size_t n)
 {
     if consteval {
         for (size_t i = 0; i < n; i++) {
@@ -228,6 +230,37 @@ constexpr void DefaultInitialize(T const* a, size_t n)
         }
     }
 }
+
+template<typename T>
+constexpr auto stringLen(T const* str)
+{
+    if consteval {
+        auto len = 0uz;
+        while (*str++ != T{}) {
+            len++;
+        }
+        return len;
+    } else {
+        if constexpr (IsUnderlyingTypeOneOf<T, char*, char8_t*>) {
+            return strlen(str);
+        } else {
+            auto len = 0uz;
+            while (*str++ != T{}) {
+                len++;
+            }
+            return len;
+        }
+    }
+}
+
+constexpr auto For(Range<size_t> const& range, auto* ptr, auto func)
+{
+    for (auto i : range) {
+        func(ptr[i]);
+    }
+}
+
+}  // namespace CArrays
 
 UNSAFE_END
 

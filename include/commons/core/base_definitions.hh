@@ -109,8 +109,60 @@
 
 namespace cm {
 
+
+/**
+ @brief Defer is used to execute a statement upon exiting the current block, by return or throw.
+ They are useful to ensure that resources are cleaned up when they are no longer needed.
+ Inspired by the Zig language construct: https://zig.guide/language-basics/defer/
+ Unlike Zig, this Defer construct can execute multiple statements at once.
+ An example of usage is:
+ \code{.cpp}
+    int main() {
+        DEFER { printf("second deferred\n"); };
+        DEFER noexcept { printf("first deferred\n"); };
+
+        printf("stuff\n");
+        return 0;
+    }
+ \endcode
+  When there are multiple defers in a single block, they are executed in reverse order.
+  \attention Do not use return inside a defer statement. Since Defer is implemented with a lambda
+ function, return is going to return from that lambda function instead of returning from the
+ function using defer.
+*/
+#define DEFER DeferredOperation __unique_name__(__defer) = [&]()
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wreserved-macro-identifier"  // shut the fuck up bitch
+#define __concat_for_defer(a, b) __concat_for_defer_inner(a, b)
+#define __concat_for_defer_inner(a, b) a##b
+#define __unique_name__(base) __concat_for_defer(base, __COUNTER__)
+#pragma GCC diagnostic pop
+
+template<typename F>
+class DeferredOperation {
+    F f;
+
+public:
+    FORCEINLINE DeferredOperation(F f) noexcept
+        : f(f)
+    {}
+
+    FORCEINLINE ~DeferredOperation() noexcept(noexcept(f())) { f(); }
+};
+
+template<typename F>
+DeferredOperation(F) -> DeferredOperation<F>;
+
+///
+/// CPU related utilities
+///
 struct CPU
 {
+    ///
+    /// Causes a trap in both compile-time and run-time evaluation.
+    ///
+    [[noreturn]]
     constexpr static void trap()
     {
         if CONSTANT_EVALUATED {
@@ -127,6 +179,9 @@ struct CPU
         }
     }
 
+    ///
+    /// Returns true if the CPU is big-endian.
+    ///
     consteval bool isBigEndian()
     {
         auto c = 0x01020304;
@@ -156,42 +211,6 @@ struct Pair
 
 template<typename A, typename B>
 Pair(A const&, B const&) -> Pair<A, B>;
-
-
-template<typename T>
-struct Cast
-{
-
-    ///
-    /// A function that takes in a variable number of arguments, and returns the Nth one cast to T.
-    /// example:
-    ///
-    /// constexpr auto x = Cast<int>::FromNth<1>;
-    /// constexpr auto i = x(1.0f, 2.0f);
-    /// static_assert(i == 2);
-    ///
-    template<long N>
-    struct FromNthT
-    {
-        constexpr T operator()(auto const&... args) const
-            requires ((N - 1) <= long(sizeof...(args)) && (__is_convertible(decltype(args), T) && ...))
-        {
-            long i = 0;
-            T result = {};
-            (
-                [&]() {
-                    if (i >= N) {
-                        result = T(args);
-                    }
-                    i++;
-                }(),
-                ...);
-            return result;
-        }
-    };
-    template<unsigned N>
-    constexpr static FromNthT<N> FromNth = {};
-};
 
 
 }  // namespace cm

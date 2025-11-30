@@ -166,7 +166,48 @@ struct Functions
     };
     template<long N>
     constexpr static NthIdentityT<N> identity = {};
+
+
+    template<typename T>
+    struct Cast
+    {
+
+        ///
+        /// A function that takes in a variable number of arguments, and returns the Nth one cast to T.
+        /// example:
+        ///
+        /// constexpr auto x = Cast<int>::FromNth<1>;
+        /// constexpr auto i = x(1.0f, 2.0f);
+        /// static_assert(i == 2);
+        ///
+        template<long N>
+        struct FromNthT
+        {
+            constexpr T operator()(auto const&... args) const
+                requires ((N - 1) <= long(sizeof...(args)) && (__is_convertible(decltype(args), T) && ...))
+            {
+                long i = 0;
+                T result = {};
+                (
+                    [&]() {
+                        if (i >= N) {
+                            result = T(args);
+                        }
+                        i++;
+                    }(),
+                    ...);
+                return result;
+            }
+        };
+        template<unsigned N>
+        constexpr static FromNthT<N> FromNth = {};
+    };
 };
+
+constexpr inline auto NotNull = [](auto* ptr) -> bool {
+    return ptr != nullptr;
+};
+
 
 }  // namespace cm
 #endif

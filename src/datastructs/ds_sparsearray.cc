@@ -12,14 +12,34 @@
    the License.
 */
 
-#include <commons/datastructs/Sparsearray.hh>
+#include <commons/datastructs.hh>
 
 
 namespace cm {
 
 
+void f(int depth, void** leaf, CFunction<void(void*)> objDtor)
+{
+    using Subnodes = void**;
+    if (depth == 0) {
+        CArrays::For(Range(256uz), leaf, NotNull);
+
+        return;
+    }
+
+    for (int i = 0; i < 256; i++) {
+        if (auto subnodes = Subnodes(leaf[i]); subnodes != nullptr) {
+            return f(depth - 1, subnodes, objDtor);
+        }
+    }
+}
+
+
 void SparseArrayBase::clear(void (*dtor)(void*))
 {
+
+    void a() {}
+
     void** ptr = _data;
 
     auto visitor = [&](this auto const& visitor_, unsigned depth) -> void {
@@ -30,13 +50,13 @@ void SparseArrayBase::clear(void (*dtor)(void*))
                     __builtin_free(ptr);
                 }
             }
-        } else {
-            for (int k = 0; k < 256; k++) {
-                if (ptr[k] != nullptr) {
-                    ptr = reinterpret_cast<void**>(ptr[k]);
-                    visitor_(depth - 1);
-                    delete[] ptr;
-                }
+            return;
+        }
+        for (int k = 0; k < 256; k++) {
+            if (ptr[k] != nullptr) {
+                ptr = reinterpret_cast<void**>(ptr[k]);
+                visitor_(depth - 1);
+                delete[] ptr;
             }
         }
     };

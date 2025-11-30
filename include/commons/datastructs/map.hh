@@ -47,7 +47,7 @@ struct Map
         u32 keyHash = _hashFunc(key);
         u64 index = u64(keyHash) << 32;
 
-        for (u32 j = 0; j < U32::MAX_VALUE; j++) {
+        for (u32 j = 0; j < MAX_VALUE<u32>; j++) {
             u64 offset = index + j;
             Optional<Pair<K, V>> entry = _array.get(offset);
 
@@ -63,7 +63,7 @@ struct Map
         u32 keyHash = _hashFunc(key);
         u64 index = u64(keyHash) << 32;
 
-        for (u32 j = 0; j < U32::MAX_VALUE; j++) {
+        for (u32 j = 0; j < MAX_VALUE<u32>; j++) {
             u64 offset = index + j;
             Optional<Pair<K, V>> entry = _array.get(offset);
 

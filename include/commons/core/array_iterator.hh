@@ -13,11 +13,7 @@
 */
 
 #pragma once
-
-#include <commons/core.hh>
-#include <commons/core.hh>
-#include <commons/core.hh>
-
+#ifdef __inline_core_header__
 
 namespace cm {
 
@@ -46,7 +42,12 @@ public:
     ///
     /// Checks if there exists an element after the current.
     ///
-    constexpr bool hasNext() const { return _index < min(_array->length() - 1, 0u); }
+    constexpr bool hasNext() const { return _index < usize(max(i64(_array->length()) - 1, 0)); }
+
+    ///
+    ///
+    ///
+    constexpr bool isNotEnd() const { return _index < _array->length(); }
 
     ///
     /// Moves the iterator to the next element.
@@ -195,6 +196,7 @@ public:
 
 }  // namespace cm
 
+#endif
 
 /*
 

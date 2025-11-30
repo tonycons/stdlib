@@ -82,7 +82,7 @@ bool ByteVector::equals(ByteVector const& other) const
         return true;
     if (length() != other.length())
         return false;
-    return memcmp(this->_data, other._data, this->length()) == 0;
+    return CArrays::equal(this->_data, other._data, this->length());
 }
 
 // void ByteVector::append(u8 byte) {}

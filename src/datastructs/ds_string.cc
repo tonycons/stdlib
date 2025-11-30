@@ -63,15 +63,6 @@ char String::operator[](Index i) const
 }
 
 //
-bool String::equals(StringValue value) const
-{
-    if (value.length() == this->length()) {
-        return memcmp(value.data(), this->cstr(), this->length()) == 0;
-    }
-    return false;
-}
-
-//
 char String::pop() &
 {
     char c = (*this)[-1];
@@ -87,7 +78,7 @@ void String::erase(Index i, usize n) &
 }
 
 //
-void String::insert(Index i, StringValue s) &
+void String::insert(Index i, StringRef s) &
 {
     usize actualIndex = getActualIndex(i);
     _data.insert(actualIndex * sizeof(char), s.data(), s.sizeBytes());
@@ -144,14 +135,14 @@ double String::toDouble() const
         a.append(*it);
     }
     if (auto fracInt = a.toInteger(); fracInt != 0) {
-        wholePart += (double(fracInt) / (pow(10.0, __builtin_floor(log10(double(fracInt)))) * 10.0));
+        wholePart += (double(fracInt) / (::pow(10.0, __builtin_floor(log10(double(fracInt)))) * 10.0));
     }
     return wholePart;
 }
 
 //
 UNSAFE_BEGIN
-String String::_fmt(char const* sFmt, std::initializer_list<ConstRefWrapper<AnyRef>> const& objects)
+String String::_fmt(char const* sFmt, ArrayRef<ConstRefWrapper<Printable>> const& objects)
 {
     auto result = String();
     auto arg = objects.begin();
@@ -162,12 +153,12 @@ String String::_fmt(char const* sFmt, std::initializer_list<ConstRefWrapper<AnyR
         __builtin_printf("(1) Format result is: %s\n", result.cstr());
         fmtPtr++;
     }
-    while (arg != objects.end()) {
+    while (arg.hasNext()) {
         Assert(*fmtPtr == '`', "More arguments than specified in format string");
-        (*arg)->outputString([&](char c) { result.append(c); });
+        (*arg)->output(result);
         __builtin_printf("(2) Format result is: %s\n", result.cstr());
-        arg++;
-        fmtPtr++;
+        ++arg;
+        ++fmtPtr;
         for (; *fmtPtr != '`' && *fmtPtr != '\0'; fmtPtr++) {
             result.append(*fmtPtr);
             __builtin_printf("(3) Format result is: %s\n", result.cstr());
@@ -180,7 +171,7 @@ String String::_fmt(char const* sFmt, std::initializer_list<ConstRefWrapper<AnyR
 
 //
 UNSAFE_BEGIN
-void String::replace(String const& substr, String const& replacement) &
+void String::replace(StringRef substr, StringRef replacement) &
 {
     auto* basePtr = cstr();
     auto* ptr = basePtr;

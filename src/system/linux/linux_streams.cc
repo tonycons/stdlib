@@ -17,17 +17,19 @@
 #ifdef __linux__
 #include "linux_streams.hh"
 #include "commons/system/syscall_linux.inl"
+
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
 
-auto cm::_stdout = cm::LinuxStandardOutStream();
-auto cm::_stderr = cm::LinuxStandardErrOutStream();
-cm::Optional<cm::OutStream&> const cm::stdout = _stdout;
-cm::Optional<cm::OutStream&> const cm::stderr = _stderr;
-
 
 namespace cm {
+
+auto _stdout = LinuxStandardOutStream();
+auto _stderr = LinuxStandardErrOutStream();
+Optional<OutStream&> const stdout = _stdout;
+Optional<OutStream&> const stderr = _stderr;
+
 
 auto LinuxStandardOutStream::writeBytes(void const* data, size_t sizeBytes) -> OutStream&
 {
@@ -54,13 +56,58 @@ auto LinuxStandardOutStream::flush() -> OutStream& { return *this; }
 
 int LinuxStandardOutStream::_fd() const { return 1; }
 
-int cm::LinuxStandardErrOutStream::_fd() const { return 2; }
+int LinuxStandardErrOutStream::_fd() const { return 2; }
 
-void cm::io::_emergencyPrint(char const* str)
+void io::_emergencyPrint(char const* str) { LinuxSyscall(LinuxSyscall.write, 2, usize(str), CArrays::stringLen(str)); }
+
+
+///
+/// Translates Linux errno values in the context of files into (system-independent) Status codes
+/// The reason why some distinct Linux errno values map to the same Status value is because not all operating
+/// systems might have the same level of detail, and Status should only represent conditions that are common across
+/// all operating systems. There's always going to be some information loss when you make a system-independent
+/// abstraction.
+///
+StreamStatus setStatusFromErrno(StreamStatus& _status, int const& err = errno)
 {
-    LinuxSyscall(LinuxSyscall.write, 2, usize(str), __builtin_strlen(str));
-}
+    switch (err) {
 
+    case EPERM:
+    case EACCES: return _status = STATUS_ERR_ACCESS;
+
+    case EBADF: return _status = STATUS_ERR_INVALID;
+
+    case ETXTBSY:
+    case EBUSY: return _status = STATUS_ERR_BUSY;
+
+    case EDQUOT: return _status = STATUS_ERR_QUOTA;
+    case EEXIST: return _status = STATUS_ERR_ALREADY_EXISTS;
+
+    // Cases when an operation is "unsupported"
+    case ENOTTY:  // Not a typewriter
+    case EISDIR:  // Is a directory (so it can't itself be written to)
+        return _status = STATUS_ERR_UNSUPPORTED;
+
+    case EINTR: return _status = STATUS_ERR_INTERRUPT;
+    case EIO: return _status = STATUS_ERR_IO;
+    case ELOOP: return _status = STATUS_ERR_LOOP;
+
+    case EMLINK:
+    case EMFILE: return _status = STATUS_ERR_LIMIT;
+
+    // Cases when "memory runs out"
+    case ENOMEM:  // Now technically this is running out of RAM, not disk..
+    case EFBIG:   // File too big
+    case ENOSPC:  // No space on disk
+        return _status = STATUS_ERR_MEMORY;
+
+    case ENODEV:  // No such device
+    case ESRCH:   // No such process
+        return _status = STATUS_ERR_NOT_FOUND;
+
+    default: return _status = STATUS_ERR_UNKNOWN;
+    }
+}
 
 ///
 /// Linux implementation for a stream that writes to a file
@@ -85,7 +132,7 @@ struct LinuxFileOutStream final : public OutStream
 
         if (result < 0 && result > -0x1000) {
             auto err = int(-result);
-            setStatusFromErrno(err);
+            setStatusFromErrno(_status, err);
             _fd = -1;
         } else {
             _fd = int(unsigned(result));
@@ -137,7 +184,7 @@ struct LinuxFileOutStream final : public OutStream
         auto r = ssize_t(LinuxSyscall(LinuxSyscall.write, usize(_fd), usize(buffer), size));
         if (r < 0) {
             int err = int(-r);
-            _status = setStatusFromErrno(err);
+            _status = setStatusFromErrno(_status, err);
             return false;
         }
         [[assume(r >= 0)]];
@@ -163,59 +210,12 @@ struct LinuxFileOutStream final : public OutStream
         auto result = isize(LinuxSyscall(LinuxSyscall.close, usize(_fd)));
         if (result < 0) {
             int err = int(-result);
-            return Err(setStatusFromErrno(err));
+            return Err(setStatusFromErrno(_status, err));
         } else {
             return Ok(_status = STATUS_OK);
         }
     }
 
-    ///
-    /// Translates Linux errno values in the context of files into (system-independent) Status codes
-    /// The reason why some distinct Linux errno values map to the same Status value is because not all operating
-    /// systems might have the same level of detail, and Status should only represent conditions that are common across
-    /// all operating systems. There's always going to be some information loss when you make a system-independent
-    /// abstraction.
-    ///
-    Status setStatusFromErrno(int const& err = errno)
-    {
-        switch (err) {
-
-        case EPERM:
-        case EACCES: return _status = STATUS_ERR_ACCESS;
-
-        case EBADF: return _status = STATUS_ERR_INVALID;
-
-        case ETXTBSY:
-        case EBUSY: return _status = STATUS_ERR_BUSY;
-
-        case EDQUOT: return _status = STATUS_ERR_QUOTA;
-        case EEXIST: return _status = STATUS_ERR_ALREADY_EXISTS;
-
-        // Cases when an operation is "unsupported"
-        case ENOTTY:  // Not a typewriter
-        case EISDIR:  // Is a directory (so it can't itself be written to)
-            return _status = STATUS_ERR_UNSUPPORTED;
-
-        case EINTR: return _status = STATUS_ERR_INTERRUPT;
-        case EIO: return _status = STATUS_ERR_IO;
-        case ELOOP: return _status = STATUS_ERR_LOOP;
-
-        case EMLINK:
-        case EMFILE: return _status = STATUS_ERR_LIMIT;
-
-        // Cases when "memory runs out"
-        case ENOMEM:  // Now technically this is running out of RAM, not disk..
-        case EFBIG:   // File too big
-        case ENOSPC:  // No space on disk
-            return _status = STATUS_ERR_MEMORY;
-
-        case ENODEV:  // No such device
-        case ESRCH:   // No such process
-            return _status = STATUS_ERR_NOT_FOUND;
-
-        default: return _status = STATUS_ERR_UNKNOWN;
-        }
-    }
 
     ///
     /// Returns the status
@@ -241,3 +241,82 @@ FileOutStream::~FileOutStream()
     }
 }
 }
+
+
+struct linux_dirent64
+{
+    u64 d_ino;               /* 64-bit inode number */
+    i64 d_off;               /* Not an offset; see getdents(2) man page */
+    unsigned short d_reclen; /* Size of this dirent */
+    char d_name[1024];       /* Filename (null-terminated) */
+};
+
+namespace cm {
+
+DirectoryListGenerator::Iterator::Iterator()
+    : fd(-1), buf(), nread(0), bpos(0), curr(""), status(STATUS_ERR_INVALID)
+{}
+
+DirectoryListGenerator::Iterator::Iterator(StringRef const& path)
+    : fd(-1), buf(), nread(0), bpos(0), curr(""), status(STATUS_OK)
+{
+    // buf = new u8[1024];
+
+    fd = isize(LinuxSyscall(LinuxSyscall.open, u64(path.data()), u64(O_RDONLY | O_DIRECTORY)));
+    if (fd < 0) {
+        setStatusFromErrno(status, int(-fd));
+        fd = -1;
+    }
+}
+
+DirectoryListGenerator::Iterator::~Iterator()
+{
+    // if (buf != nullptr) {
+    //     delete[] buf;
+    // }
+}
+
+bool DirectoryListGenerator::Iterator::operator==(Iterator const& other) const
+{
+    if (fd == -1 && other.fd == -1) {
+        return true;
+    } else {
+
+        return false;  // return fd == other.fd;  // && curr == other.curr;
+    }
+}
+
+UNSAFE_BEGIN
+DirectoryListGenerator::Iterator& DirectoryListGenerator::Iterator::operator++()
+{
+    if (bpos < nread) {
+        // On this iteration, there are 1 or more linux_dirent64 saved in the buffer for us to read
+        using linux_dirent_ptr = struct linux_dirent64*;
+
+        _Pragma("clang diagnostic push");
+        _Pragma("clang diagnostic ignored \"-Wcast-align\"");
+
+        auto d = linux_dirent_ptr(&buf[bpos]);
+        _Pragma("clang diagnostic pop");
+        // auto d_type = *(buf + bpos + d->d_reclen - 1);  // Get file type
+
+        curr = StringRef(d->d_name);
+        bpos += d->d_reclen;
+        return *this;
+    }
+    // Otherwise read more linux_dirent64 objects
+    nread = isize(LinuxSyscall(LinuxSyscall.getdents, u64(fd), u64(buf), u64(sizeof(buf))));
+    bpos = 0;
+    if (nread <= 0) {
+        // either an error occured or we are done
+        LinuxSyscall(LinuxSyscall.close, u64(fd));
+        fd = -1;
+        if (nread < 0) {
+            setStatusFromErrno(status, int(-fd));
+        }
+    }
+    return *this;
+}
+UNSAFE_END
+
+}  // namespace cm

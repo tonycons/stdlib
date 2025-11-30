@@ -40,36 +40,24 @@ public:
     template<typename... Args>
     requires (Constructible<SuccessType, Args...>)
     explicit constexpr Result(ResultSuccessTag, Args&&... args)
-        : _u{.success = SuccessType(Forward<Args>(args)...)}, _error(false)
+        : _u(SuccessWrapper{SuccessType(Forward<Args>(args)...)})
     {}
 
     template<typename... Args>
     requires (Constructible<ErrorType, Args...>)
     explicit constexpr Result(ResultErrorTag, Args&&... args)
-        : _u{.error = ErrorType(Forward<Args>(args)...)}, _error(true)
+        : _u(ErrorWrapper{ErrorType(Forward<Args>(args)...)})
     {}
 
-    constexpr inline ~Result()
-    {
-        if constexpr (Destructible<ErrorType>) {
-            if (_error)
-                _u.error.~ErrorType();
-        }
-        if constexpr (Destructible<SuccessType>) {
-            if (!_error)
-                _u.success.~SuccessType();
-        }
-    }
+    constexpr inline ~Result() = default;
 
-    FORCEINLINE constexpr operator bool() const noexcept { return !_error; }
-
-
-    FORCEINLINE constexpr bool isOk() const noexcept { return !_error; }
-    FORCEINLINE constexpr bool isErr() const noexcept { return _error; }
+    FORCEINLINE constexpr operator bool() const noexcept { return _u.template is<SuccessWrapper>(); }
+    FORCEINLINE constexpr bool isOk() const noexcept { return _u.template is<SuccessWrapper>(); }
+    FORCEINLINE constexpr bool isErr() const noexcept { return _u.template is<ErrorWrapper>(); }
 
     FORCEINLINE constexpr SuccessType const& unwrap() const noexcept
     {
-        if (_error) {
+        if (isErr()) {
             CPU.trap();
         }
         return _u.success;
@@ -90,11 +78,17 @@ public:
     }
 
 private:
-    union {
+    // This works around the edge case where successType and ErrorType being the same type, in which case they cannot be
+    // stored in a tagged union, so we have to create a wrapper class for them
+    struct SuccessWrapper
+    {
         SuccessType success;
+    };
+    struct ErrorWrapper
+    {
         ErrorType error;
-    } _u;
-    bool _error;
+    };
+    Union<SuccessWrapper, ErrorWrapper> _u;
 };
 
 // DO:  template<typename T> instead

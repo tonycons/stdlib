@@ -100,10 +100,10 @@ struct Double
         if (bit_cast<i64>(x) == bit_cast<i64>(-1.0))
             return !(n & 1) ? 1.0 : -1.0;
 
-        if (n == Int.MAX_VALUE)
+        if (n == ::cm::MAX_VALUE<int>)
             return (x < 1.0 && x > -1.0) ? 0.0 : (1.0 / 0.0);
 
-        if (n == Int.MIN_VALUE)
+        if (n == ::cm::MIN_VALUE<int>)
             return 0.0;
 
         y = n;
@@ -115,55 +115,60 @@ struct Double
         return y < 0 ? 1.0 / r : r;
     }
 
-    constexpr static void outputString(double val, auto const& writer)
-    {
-        i64 integer;
-        int zero_threshold = 16;
-        int zero_seq_len = 0;
+} inline constexpr Double;
 
-        if (__builtin_isnan(val)) {
-            writer('N'), writer('a'), writer('N');
-            return;
-        } else if (__builtin_isinf(val)) {
-            if (__builtin_signbit(val)) {
-                writer('-'), writer('i'), writer('n'), writer('f');
-                return;
-            } else {
-                writer('i'), writer('n'), writer('f');
-                return;
-            }
-        }
-        if (val < 0) {
-            writer('-');
-            val = -val;
-        }
-        integer = i64(val);
-        if (integer == 0) {
-            writer('0');
-            return;
-        }
-        I64.outputString(integer, writer);
-        writer('.');
 
-        while (true) {
-            val = val - static_cast<double>(i64(val));
-            val *= 10;
-            integer = i64(val);
-            if (integer == 0) {
-                zero_seq_len++;
-                writer('0');
-                if (zero_seq_len >= zero_threshold) {
-                    return;
-                }
-            } else {
-                zero_seq_len = 0;
-                I64.outputString(integer, writer);
-            }
-            zero_threshold--;
+///
+/// Converts a floating-point value into a String
+///
+template<IsFloatingPoint T>
+void OutputString(T val, auto const& writer)
+{
+    i64 integer;
+    int zero_threshold = 16;
+    int zero_seq_len = 0;
+
+    if (__builtin_isnan(val)) {
+        writer('N'), writer('a'), writer('N');
+        return;
+    } else if (__builtin_isinf(val)) {
+        if (__builtin_signbit(val)) {
+            writer('-'), writer('i'), writer('n'), writer('f');
+            return;
+        } else {
+            writer('i'), writer('n'), writer('f');
+            return;
         }
     }
+    if (val < 0) {
+        writer('-');
+        val = -val;
+    }
+    integer = i64(val);
+    if (integer == 0) {
+        writer('0');
+        return;
+    }
+    OutputString(integer, writer);
+    writer('.');
 
-} inline constexpr Double;
+    while (true) {
+        val = val - static_cast<double>(i64(val));
+        val *= 10;
+        integer = i64(val);
+        if (integer == 0) {
+            zero_seq_len++;
+            writer('0');
+            if (zero_seq_len >= zero_threshold) {
+                return;
+            }
+        } else {
+            zero_seq_len = 0;
+            OutputString(integer, writer);
+        }
+        zero_threshold--;
+    }
+}
 
 }  // namespace cm
 #endif

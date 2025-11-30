@@ -17,57 +17,59 @@
 
 namespace cm {
 
-/**
- * Interface for streaming data to a target.
- */
+///
+/// Bitmask representing the error states of the stream.
+///
+enum StreamStatus : u64 {
+    STATUS_OK = 0,
+    STATUS_FAILED_INIT = (1 << 0),
+    STATUS_FAILED_WRITE = (1 << 1),
+    STATUS_FAILED_FLUSH = (1 << 2),
+    STATUS_NOT_ALL_BYTES_FLUSHED = (1 << 3),
+
+    // The last operation failed because the stream is invalid
+    STATUS_ERR_INVALID = (1 << 4),
+
+    // The last operation was interrupted by a signal before it could complete.
+    STATUS_ERR_INTERRUPT = (1 << 5),
+
+    // The last operation failed due to an I/O error.
+    STATUS_ERR_IO = (1 << 6),
+
+    // The last operation failed due to an unknown error.
+    STATUS_ERR_UNKNOWN = (1 << 7),
+
+    STATUS_ERR_ACCESS = (1 << 8),
+    STATUS_ERR_BUSY = (1 << 9),
+    STATUS_ERR_QUOTA = (1 << 10),
+
+    STATUS_ERR_ALREADY_EXISTS = (1 << 11),
+
+    // The operation failed because the type of the stream might not support that operation.
+    STATUS_ERR_UNSUPPORTED = (1 << 12),
+
+    STATUS_ERR_LOOP = (1 << 13),
+    STATUS_ERR_LIMIT = (1 << 14),
+
+    STATUS_ERR_NOT_FOUND = (1 << 15),
+    STATUS_ERR_MEMORY = (1 << 16),
+
+
+    // The last operation failed for any reason
+    STATUS_ANY_ERR = 0xffff'ffff'ffff'fffe,
+};
+
+///
+/// Interface for streaming data to a target.
+///
 class OutStream {
 public:
-    ///
-    /// Bitmask representing the error states of the stream.
-    ///
-    enum Status : u64 {
-        STATUS_OK = 0,
-        STATUS_FAILED_INIT = (1 << 0),
-        STATUS_FAILED_WRITE = (1 << 1),
-        STATUS_FAILED_FLUSH = (1 << 2),
-        STATUS_NOT_ALL_BYTES_FLUSHED = (1 << 3),
-
-        // The last operation failed because the stream is invalid
-        STATUS_ERR_INVALID = (1 << 4),
-
-        // The last operation was interrupted by a signal before it could complete.
-        STATUS_ERR_INTERRUPT = (1 << 5),
-
-        // The last operation failed due to an I/O error.
-        STATUS_ERR_IO = (1 << 6),
-
-        // The last operation failed due to an unknown error.
-        STATUS_ERR_UNKNOWN = (1 << 7),
-
-        STATUS_ERR_ACCESS = (1 << 8),
-        STATUS_ERR_BUSY = (1 << 9),
-        STATUS_ERR_QUOTA = (1 << 10),
-
-        STATUS_ERR_ALREADY_EXISTS = (1 << 11),
-
-        // The operation failed because the type of the stream might not support that operation.
-        STATUS_ERR_UNSUPPORTED = (1 << 12),
-
-        STATUS_ERR_LOOP = (1 << 13),
-        STATUS_ERR_LIMIT = (1 << 14),
-
-        STATUS_ERR_NOT_FOUND = (1 << 15),
-        STATUS_ERR_MEMORY = (1 << 16),
-
-
-        // The last operation failed for any reason
-        STATUS_ANY_ERR = 0xffff'ffff'ffff'fffe,
-    };
+    using Status = StreamStatus;
 
     ///
     /// Represents the OS-dependent line separator.
     ///
-    constexpr static StringValue LINE_SEPARATOR =
+    constexpr static StringRef LS =
 #ifdef _WIN32
         "\r\n";
 #elif defined(__APPLE__) || defined(__MACH___)
@@ -83,12 +85,12 @@ public:
     /// @param data The data
     /// @param sizeBytes The data size
     ///
-    virtual auto writeBytes(void const* data, size_t sizeBytes) -> OutStream& = 0;
+    virtual OutStream& writeBytes(void const* data, size_t sizeBytes) = 0;
 
     ///
     /// Sends all pending data to the target.
     ///
-    virtual auto flush() -> OutStream& = 0;
+    virtual OutStream& flush() = 0;
 
     ///
     /// Closes the stream. Returns a bitmask indicating the success of the close operation.
@@ -103,74 +105,63 @@ public:
     ///
     inline virtual Status status() const { return STATUS_OK; }
 
-
+    ///
+    /// Returns true if the stream has no errors
+    ///
     inline bool ok() { return status() == STATUS_OK; }
+
+
+    /// =========================================================================================================================
 
     ///
     /// Print a value to the stream.
     /// @param arg The value
     ///
-    void print(auto const& value)
-    {
-        auto str = String::valueOf(value);
-        writeBytes(str.cstr(), str.sizeBytes());
-    }
-
+    void print(auto const& value) { _print('`', ArrayRef{ConstRefWrapper<Printable>(PrintableT(value))}); }
     template<int N>
     void print(char const (&str)[N])
     {
         writeBytes(str, max(N - 1, 0));
     }
 
-
-    /**
-     * Print a text followed to the stream with a format specifier.
-     * @param sFmt The format string
-     * @param args The arguments
-     */
-    template<int N>
-    void print(char const (&sFmt)[N], auto const&... args)
+    ///
+    /// Print a text followed to the stream with a format specifier.
+    /// @param sFmt The format string
+    /// @param args The arguments
+    ///
+    void print(StringRef const& sFmt, auto const&... args)
     {
-        _print(sFmt, {AnyRefT(args)...});
+        this->_print(sFmt, ArrayRef<ConstRefWrapper<Printable>>{(ConstRefWrapper<Printable>(PrintableT(args)))...});
     }
 
-    /**
-     * Print a text followed by a newline to the stream with a format specifier.
-     * @param sFmt The format string
-     * @param args The arguments
-     */
-    template<int N>
-    void println(char const (&sFmt)[N], auto const&... args)
-    {
-        print(sFmt, args...);
-        writeBytes(LINE_SEPARATOR.data(), LINE_SEPARATOR.sizeBytes());
-    }
+    /// =========================================================================================================================
 
-    template<int N, typename T>
-    void println(char const (&sFmt)[N], std::initializer_list<T> const& args)
-    {
-        println<N>(sFmt, ArrayRef(args.begin(), args.size()));
-    }
-
-    /**
-     * Print a value followed by a newline to the stream.
-     * @param arg The value
-     */
+    ///
+    /// Print a value followed by a newline to the stream.
+    /// @param arg The value
+    ///
     void println(auto const& value)
     {
-        print(value);
-        writeBytes(LINE_SEPARATOR.data(), LINE_SEPARATOR.sizeBytes());
+        this->print(value);
+        this->print(LS);
     }
-
     template<int N>
     void println(char const (&str)[N])
     {
-        writeBytes(str, max(N - 1, 0));
-        writeBytes(LINE_SEPARATOR.data(), LINE_SEPARATOR.sizeBytes());
+        this->writeBytes(str, max(N - 1, 0));
+        this->writeBytes(LS.data(), LS.sizeBytes());
     }
 
+    ///
+    /// Print a text followed by a newline to the stream with a format specifier.
+    /// @param sFmt The format string
+    /// @param args The arguments
+    ///
+    void println(StringRef sFmt, auto const&... args) { print(sFmt, args...), print(LS); }
+
+
 private:
-    void _print(char const* sFmt, std::initializer_list<ConstRefWrapper<AnyRef>> const& objects);
+    void _print(StringRef const& sFmt, ArrayRef<ConstRefWrapper<Printable>> const& objects);
 };
 
 ///
@@ -198,6 +189,47 @@ private:
 
 
 ///
+/// A stream that writes to a file.
+///
+struct FileOutStream : public Optional<OutStream&>
+{
+    using Optional<OutStream&>::Optional;
+    FileOutStream(String const& path, Optional<usize> const& bufferCapacity = 4_KB);
+    ~FileOutStream();
+};
+
+struct DirectoryListGenerator
+{
+    StringRef path;
+
+    struct Iterator : public NonCopyable
+    {
+        isize fd;
+        u8 buf[1024];
+        isize nread;
+        isize bpos;
+        StringRef curr;
+        StreamStatus status;
+
+        Iterator();
+        Iterator(StringRef const& path);
+        ~Iterator();
+        bool operator==(Iterator const& other) const;
+        Iterator& operator++();
+
+        inline StringRef const& operator*() const { return curr; }
+    };
+
+    Iterator begin() const { return Iterator(path); }
+    Iterator end() const { return Iterator(); }
+};
+
+///
+///
+///
+inline auto DirectoryList(String const& path) { return DirectoryListGenerator{path}; }
+
+///
 /// An Optional standard output stream.
 /// It may be set to None on systems that don't have a standard output stream.
 ///
@@ -209,6 +241,9 @@ extern Optional<OutStream&> const stdout;
 ///
 extern Optional<OutStream&> const stderr;
 
+///
+/// An instance of a system shell.
+///
 struct Shell
 {
     virtual ~Shell() = default;
@@ -221,16 +256,6 @@ struct Shell
 ///
 extern Optional<Shell&> const shell;
 
-///
-/// Creates a stream that writes to a file
-///
-struct FileOutStream : public Optional<OutStream&>
-{
-    using Optional<OutStream&>::Optional;
-
-    FileOutStream(String const& path, Optional<usize> const& bufferCapacity = 4_KB);
-    ~FileOutStream();
-};
 
 }  // namespace cm
 #endif

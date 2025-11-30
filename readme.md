@@ -1,10 +1,20 @@
 # My "commons" standard library
 
-### A personal utility library for use in coding challenges, hacking, and future C++ projects. Implemented my own standard data structures, and several features from the Rust language.
+### ~~An exercise in futility~~ A new standard library for C++ built from scratch, with its own implementations of standard data structures and several features from the Rust language.
+
+### Disclaimer
+
+This is a work in progress, and serves more as a "brain dump" for the time being. I don't intend for this to be used in any
+production code at the moment.
 
 ### Motivation
 
 C++ is my favorite language, and it faces a number of criticisms that I seek to challenge. This project considers an alternative design for a the standard library that would address some of those issues. 
+
+For background, read this: https://news.ycombinator.com/item?id=40555787
+
+"Modern C++ provides all the tools to build an alternative standard library from the ground up with most behaviors and interactions being defined and safe. This always seemed like lower-hanging fruit for a first attempt than changing the language."
+
 
 
 * #### "C++ is unsafe and primitive"
@@ -31,21 +41,17 @@ C++ is my favorite language, and it faces a number of criticisms that I seek to 
    once and then fails with a different compiler. 
 
    Bizarre operators like the << pipe operator and the new "|" operator introduced with the ranges module. Horrible compiler error messages resulting from the abuse of type aliases and excessive class template parameters.
-
-   This project attempts to avoid some of these issues. For example, some type aliases of the form
-   <code>
-   using A = B;
-   </code>
-   can instead be replaced with
-   <code>
-   struct A : B {
-      using B::B;
-   };
-   </code>
  
 * #### "It takes forever to write code in C++, use Python to write code faster"
 
    In part, this is due to the difficulties in using the C++ standard library. But again-- this has nothing to do with the language itself. Except for a few things like list comprehensions, Python simply has more standard packages available, and others are easier to install. This project aims to cover a broader range of utilities just like the standard Python packages.
+
+## Setup
+
+The only requirements are a recent version of <code>clang++</code>,<code>cmake</code>,and <code>ninja</code>.
+On Linux, they are very easy to install. E.g for fedora: <code>sudo dnf install clang++ cmake ninja</code>
+Then, run the **setup** script and select the platform to build for.
+Use the **run** script to build and run a sample.
 
 ## Roadmap
 
@@ -93,6 +99,8 @@ There will be functions provided for conversion between different text encodings
 
 
 ## Documentation (TODO)
+
+* ### [Core Module](docs/core.md)
 
 * [Option](docs/Option.md)
 * [Union](docs/Union.md)

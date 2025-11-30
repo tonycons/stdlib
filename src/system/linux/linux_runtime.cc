@@ -30,22 +30,22 @@ void ::cm::panic(char const* message, char const* reason, SourceLocation src)
         LinuxSyscall(LinuxSyscall.write, 2, u64(str), len);
     };
     write("\x1B[31m", sizeof("\x1B[31m"));
-    write(message, __builtin_strlen(message));
+    write(message, CArrays::stringLen(message));
 
     if (src.function() != nullptr || src.file() != nullptr) {
         write((" in "), 4);
     }
     if (src.function() != nullptr) {
-        write((src.function()), __builtin_strlen(src.function()));
+        write((src.function()), CArrays::stringLen(src.function()));
     }
     if (src.file() != nullptr) {
         write((" at \""), 5);
-        write(src.file(), __builtin_strlen(src.file()));
+        write(src.file(), CArrays::stringLen(src.file()));
         write("\"", 1);
     }
     if (reason != nullptr) {
         write(".\n\treason: ", 11);
-        write(reason, __builtin_strlen(reason));
+        write(reason, CArrays::stringLen(reason));
     }
     Profiler::printStackTrace();
     write("\x1B[0m", sizeof("\x1B[0m"));

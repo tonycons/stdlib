@@ -1,6 +1,7 @@
 #include <commons/core.hh>
 #include <commons/system.hh>
 #include <commons/datastructs.hh>
+#include <commons/algorithm/predicates.hh>
 
 
 using namespace cm;
@@ -10,7 +11,7 @@ using namespace cm;
 /// An example of using arrays and ranges
 /// https://en.wikipedia.org/wiki/Levenshtein_distance#Iterative_with_full_matrix
 ///
-int levenshteinDistance(StringValue s1, StringValue s2)
+int levenshteinDistance(StringRef s1, StringRef s2)
 {
     auto m = int(s1.length() + 1);
     auto n = int(s2.length() + 1);
@@ -31,9 +32,10 @@ int main()
 {
     // Example 1
     auto ld = levenshteinDistance;
-    stdout->println("`", {ld("Hello", "hoLle"), ld("Hello", "heLlo"), ld("Hello", "Gello"), ld("kitten", "sitting")});
+    stdout->println(
+        "`", ArrayRef{ld("Hello", "hoLle"), ld("Hello", "heLlo"), ld("Hello", "Gello"), ld("kitten", "sitting")});
 
-    // Example 2: simple file access
+    // simple file access
 
     if (auto bob = FileOutStream("bob.txt"); bob->ok()) {
         bob->println("Hello from Bob!");
@@ -41,6 +43,30 @@ int main()
     } else {
         stdout->println("Can't open bob!");
     }
+
+    // Comparators
+
+    int k1[] = {1, 2};
+    int k2[] = {2, 2};
+    int k3[] = {1, 2, 3, 4, 5};
+
+    ArrayRef<int> k = k1;
+
+    stdout->println("should be 0: `", k.compareTimesafe(k1));
+    stdout->println("should be -1: `", k.compareTimesafe(k2));
+    stdout->println("should be -1: `", k.compareTimesafe(k3));
+    stdout->println(k > k3);
+    stdout->println(true);
+
+
+    // for (auto dir : Filter(ArrayRef{"a", "b", "c"}, StartsWith<'a'>)) {
+    //     stdout->println(dir);
+    // }
+
+    // Map<char const*, int> map;
+    // map.put("Hello", 10);
+
+    // stdout->println(map.get("Hello"));
 
     return 0;
 }

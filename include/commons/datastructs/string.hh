@@ -20,31 +20,29 @@
 
 namespace cm {
 
+
 class String;
-using StringCRef = String const&;
 
-
-///
-/// A non owning reference to a string.
-/// Note: Inheriting from ArrayRef<char> instead of making a type alias to have better compiler diagnostics.
-///
-struct StringValue : ArrayRef<char>
+struct Printable
 {
-private:
-    char _ch = '\0';
-
-public:
-    using ArrayRef<char>::ArrayRef;
-
-    constexpr StringValue(char ch)
-        : ArrayRef<char>(&this->_ch, 1), _ch(ch)
-    {}
-
-    // Overload length and sizeBytes to account for the null terminator
-
-    constexpr auto length() const { return usize(::cm::max(0, isize(ArrayRef<char>::length()) - 1)); }
-    constexpr auto sizeBytes() const { return this->length() * sizeof(char); }
+    virtual ~Printable() = default;
+    virtual void output(String& result) const = 0;
 };
+
+template<typename T>
+struct PrintableT final : Printable
+{
+    T* ptr;
+
+    PrintableT(T const& ref)
+        : ptr(&const_cast<T&>(ref))
+    {}
+    void output(String& result) const override;
+};
+
+template<typename T>
+[[maybe_unused]] PrintableT(T const&) -> PrintableT<T>;
+
 
 ///
 /// A dynamic, heap-allocated string
@@ -70,14 +68,21 @@ public:
 
     String();
     String(char c);
+    String(char const* str)
+        : String(StringRef(str))
+    {}
     String(char const* cstring, usize len);
-    String(String const&) = default;
-    String& operator=(String const&) = default;
+    String(StringRef const& sv)
+        : String(sv.data(), sv.length())
+    {}
 
-    operator ArrayRef<char>() { return ArrayRef<char>(const_cast<char*>(cstr()), length()); }
-    operator ArrayRef<char>() const { return ArrayRef<char>(const_cast<char*>(cstr()), length()); }
-    operator StringValue() { return StringValue(const_cast<char*>(cstr()), length()); }
-    operator StringValue() const { return StringValue(const_cast<char*>(cstr()), length()); }
+    NODISCARD String(String const&) = default;
+    NODISCARD String& operator=(String const&) = default;
+
+    NODISCARD operator ArrayRef<char>() { return ArrayRef<char>(const_cast<char*>(cstr()), length()); }
+    NODISCARD operator ArrayRef<char>() const { return ArrayRef<char>(const_cast<char*>(cstr()), length()); }
+    NODISCARD operator StringRef() { return StringRef(const_cast<char*>(cstr()), length()); }
+    NODISCARD operator StringRef() const { return StringRef(const_cast<char*>(cstr()), length()); }
 
     NODISCARD usize getActualIndex(Index i) const;
 
@@ -95,21 +100,15 @@ public:
 
     NODISCARD char const* cstr() const { return this->data(); }
 
-    NODISCARD bool equals(StringValue value) const;
-
-    void outputString(String const& res, auto const& out) const
-    {
-        for (char c : res)
-            out(c);
-    }
+    NODISCARD bool equals(StringRef value) const { return StringRef(*this).equals(value); }
 
     void ensureNullTermination();
 
     void erase(Index i, usize count) &;
 
-    void insert(Index, StringValue) &;
+    void insert(Index, StringRef) &;
 
-    void replace(StringCRef substr, StringCRef replacement) &;
+    void replace(StringRef substr, StringRef replacement) &;
 
 
     void insertf(Index i, u64 value);
@@ -121,41 +120,36 @@ public:
     template<unsigned N, typename... Args>
     NODISCARD FORCEINLINE static String fmt(char const (&sFmt)[N], Args... args)
     {
-        return _fmt(sFmt, {AnyRefT(args)...});
+        return _fmt(sFmt, {PrintableT(args)...});
     }
 
     /**
      * TODO
      */
-    NODISCARD FORCEINLINE static String valueOf(auto const& val)
-    {
-        String result;
-        AnyRefT(val).outputString([&](char c) { result.append(c); });
-        return result;
-    }
+    // NODISCARD FORCEINLINE static String valueOf(auto const& val) { return ToString(val); }
 
-    FORCEINLINE void append(StringValue s) & { return insert(length(), s); }
-    FORCEINLINE void push(StringValue s) & { return insert(length(), s); }
+    FORCEINLINE void append(StringRef s) & { return insert(length(), s); }
+    FORCEINLINE void push(StringRef s) & { return insert(length(), s); }
     char pop() &;
 
-    NODISCARD FORCEINLINE String replace(StringCRef s, StringCRef r) const { return String(*this).replace(s, r); }
-    NODISCARD FORCEINLINE String replace(StringCRef s, StringCRef r) && { return (replace(s, r), *this); }
+    NODISCARD FORCEINLINE String replace(StringRef s, StringRef r) const { return String(*this).replace(s, r); }
+    NODISCARD FORCEINLINE String replace(StringRef s, StringRef r) && { return (replace(s, r), *this); }
 
     NODISCARD FORCEINLINE String erase(Index i, usize n) const { return String(*this).erase(i, n); }
     NODISCARD FORCEINLINE String erase(Index i, usize n) && { return (erase(i, n), *this); }
 
-    NODISCARD FORCEINLINE String insert(Index i, StringValue s) const { return String(*this).insert(i, s); }
-    NODISCARD FORCEINLINE String insert(Index i, StringValue s) && { return (insert(i, s), *this); };
+    NODISCARD FORCEINLINE String insert(Index i, StringRef s) const { return String(*this).insert(i, s); }
+    NODISCARD FORCEINLINE String insert(Index i, StringRef s) && { return (insert(i, s), *this); };
 
-    NODISCARD FORCEINLINE String append(StringValue s) const { return String(*this).append(s); }
-    NODISCARD FORCEINLINE String append(StringValue s) && { return (append(s), *this); }
+    NODISCARD FORCEINLINE String append(StringRef s) const { return String(*this).append(s); }
+    NODISCARD FORCEINLINE String append(StringRef s) && { return (append(s), *this); }
 
 
-    /**
-     * Removes the final element if it is equal to some value.
-     * @note If the element is not a simple data type and is removed, its destructor is called.
-     * @param refValue The value to remove.
-     */
+    ///
+    /// Removes the final element if it is equal to some value.
+    /// @note If the element is not a simple data type and is removed, its destructor is called.
+    /// @param refValue The value to remove.
+    ///
     void removeSuffix(char refValue) &;
 
 public:
@@ -163,16 +157,45 @@ public:
     double toDouble() const;
 
 private:
+    struct Printable
+    {
+        virtual ~Printable() = default;
+        virtual void output(String& result) const = 0;
+    };
+
+    template<typename T>
+    struct PrintableT final : Printable
+    {
+        T* ptr;
+
+        PrintableT(T const& ref)
+            : ptr(&const_cast<T&>(ref))
+        {}
+        void output(String& result) const override
+        {
+            if constexpr (Constructible<String, T>) {
+                result.append(*ptr);
+            } else {
+                OutputString(*ptr, [&](char c) { result.append(c); });
+            }
+        }
+    };
+
     String(char const* ptr, int, int);
-    static String _fmt(char const* sFmt, std::initializer_list<ConstRefWrapper<AnyRef>> const& objects);
+    static String _fmt(char const* sFmt, ArrayRef<ConstRefWrapper<Printable>> const& objects);
 };
 
-template<typename Inheritor>
-void Collection<Inheritor>::toString(String& res) const
+
+template<typename T>
+void PrintableT<T>::output(String& result) const
 {
-    this->forEach([&](ElementType const& e) { res.append(String::valueOf(e)); });
-    // map<String*>([](ElementType const& e) -> String* { return String::valueOf(e); }).join(",");
-};
+    if constexpr (IsUnderlyingTypeOneOf<T, String, StringRef, char*, char>) {
+        result.append(*ptr);
+    } else {
+        OutputString(*ptr, [&](char c) { result.append(c); });
+    }
+}
+
 
 // static_assert(IsDerivedFrom<Array<char>, String>);
 

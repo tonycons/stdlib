@@ -15,6 +15,101 @@
 #pragma once
 #ifdef __inline_core_header__
 
+
+#if !defined(__clang__) && defined(_MSC_VER)
+using __UINT8_TYPE__ = unsigned __int8;
+using __INT8_TYPE__ = signed char;  // because some dumb *** defined __int8 as char
+using __UINT16_TYPE__ = unsigned __int16;
+using __INT16_TYPE__ = __int16;
+using __UINT32_TYPE__ = unsigned __int32;
+using __INT32_TYPE__ = __int32;
+using __UINT64_TYPE__ = unsigned __int64;
+using __INT64_TYPE__ = __int64;
+using __UINTMAX_TYPE__ = unsigned long long;
+using __INTMAX_TYPE__ = long long;
+#if _M_X64
+using __SIZE_TYPE__ = unsigned __int64;
+using __INTPTR_TYPE__ = __int64;
+#else
+using __SIZE_TYPE__ = unsigned __int32;
+using __INTPTR_TYPE__ = __int32;
+#endif
+#endif
+
+/// A "zero-bit" integer just for giggles. Good luck using it!
+using u0 = void;
+
+using u1 = unsigned _BitInt(1);
+
+// Note: An "i1" would be useless because it would literally be nothing but a sign bit:
+// It's either positive or negative nothing. Clang won't even let you use signed _BitInt(1).
+
+/// {0, 1, 2, 3}
+using u2 = unsigned _BitInt(2);
+/// {0, 1, -2, -1}
+using i2 = signed _BitInt(2);
+
+using u3 = unsigned _BitInt(3);
+
+using i3 = signed _BitInt(3);
+
+using u4 = unsigned _BitInt(4);
+
+using i4 = signed _BitInt(4);
+
+using u8 = __UINT8_TYPE__;
+
+using i8 = __INT8_TYPE__;
+
+using u16 = __UINT16_TYPE__;
+
+using i16 = __INT16_TYPE__;
+
+using u24 = unsigned _BitInt(24);
+
+using i24 = signed _BitInt(24);
+
+using u32 = __UINT32_TYPE__;
+
+using i32 = __INT32_TYPE__;
+
+using u48 = unsigned _BitInt(48);
+
+using i48 = signed _BitInt(48);
+
+using u64 = __UINT64_TYPE__;
+
+using i64 = __INT64_TYPE__;
+
+#if defined(__aarch64__) || defined(__x86_64__)
+using u128 = __uint128_t;
+#else
+using u128 = unsigned _BitInt(128);
+#endif
+
+#if defined(__aarch64__) || defined(__x86_64__)
+using i128 = __int128;
+#else
+using i128 = _BitInt(128);
+#endif
+
+using u256 = unsigned _BitInt(256);
+
+using i256 = _BitInt(256);
+
+using usize = __SIZE_TYPE__;
+
+using isize = __INTPTR_TYPE__;
+
+static_assert(sizeof(u8) == 1 && sizeof(i8) == 1);
+static_assert(sizeof(u16) == 2 && sizeof(i16) == 2);
+static_assert(sizeof(u32) == 4 && sizeof(i32) == 4);
+static_assert(sizeof(u64) == 8 && sizeof(i64) == 8);
+static_assert(sizeof(u128) == 16 && sizeof(i128) == 16);
+static_assert(sizeof(u256) == 32 && sizeof(i256) == 32);
+static_assert(sizeof(usize) == sizeof(void*) && sizeof(isize) == sizeof(void*));
+
+
 struct Nothing
 {};
 
@@ -277,13 +372,15 @@ concept IsUnderlyingType = IsSame<UnderlyingTypeOf<T>, U>;
 template<typename T, typename... A>
 concept IsUnderlyingTypeOneOf = ((IsSame<UnderlyingTypeOf<T>, A>) || ...);
 
+template<typename T>
+concept IsBool = IsUnderlyingTypeOneOf<T, bool>;
 
 #if __has_builtin(__is_integral)
 template<typename T>
-concept IsInteger = __is_integral(UnderlyingTypeOf<T>);
+concept IsInteger = !IsBool<T> && __is_integral(UnderlyingTypeOf<T>);
 
 template<typename T>
-concept IsIntegerPrimitiveType = __is_integral(T);
+concept IsIntegerPrimitiveType = !IsBool<T> && __is_integral(T);
 
 #else
 template<typename T>
@@ -315,14 +412,10 @@ concept IsFloatingPoint = IsUnderlyingTypeOneOf<T, float, double, long double>;
 template<typename T>
 concept IsChar = IsUnderlyingTypeOneOf<T, char, wchar_t, char8_t, char16_t, char32_t>;
 
-template<typename T>
-concept IsBool = IsUnderlyingTypeOneOf<T, bool>;
 
 template<typename T>
 concept IsMutable = requires (T a, T b) {
-    {
-        a = b
-    };
+    { a = b };
 };
 
 
@@ -359,6 +452,9 @@ concept TriviallyAssignable =
 template<typename T>
 concept TriviallyDestructible = __is_trivially_destructible(T);
 
+template<typename... Types>
+concept AllTriviallyDestructible = ((TriviallyDestructible<Types>) || ...);
+
 template<typename T>
 concept Destructible = __is_destructible(T);
 
@@ -376,16 +472,12 @@ concept Destructible = __is_destructible(T);
 
 template<typename Func, typename... Args>
 concept IsCallableWith = requires (Func func, Args... args) {
-    {
-        func(args...)
-    };
+    { func(args...) };
 };
 
 template<typename F, typename ReturnType, typename... Args>
 concept IsCallableAndReturns = requires (F f, Args... args) {
-    {
-        f(args...)
-    } -> IsSame<ReturnType>;
+    { f(args...) } -> IsSame<ReturnType>;
 };
 
 
@@ -402,16 +494,12 @@ concept IsCallableAndReturns = requires (F f, Args... args) {
 
 template<typename T>
 concept IsIncrementable = requires (T a) {
-    {
-        (++a, a++)
-    };
+    { (++a, a++) };
 };
 
 template<typename T>
 concept IsDecrementable = requires (T a) {
-    {
-        (a--, --a)
-    };
+    { (a--, --a) };
 };
 
 template<typename T>
@@ -420,30 +508,22 @@ concept IsIncrementableDecrementable = IsIncrementable<T> && IsDecrementable<T>;
 
 template<typename T1, typename T2>
 concept IsComparableLT = requires (T1 t1, T2 t2) {
-    {
-        t1 < t2
-    };
+    { t1 < t2 };
 };
 
 template<typename T1, typename T2>
 concept IsComparableGT = requires (T1 t1, T2 t2) {
-    {
-        t1 > t2
-    };
+    { t1 > t2 };
 };
 
 template<typename T1, typename T2>
 concept IsComparableLE = requires (T1 t1, T2 t2) {
-    {
-        t1 <= t2
-    };
+    { t1 <= t2 };
 };
 
 template<typename T1, typename T2>
 concept IsComparableGE = requires (T1 t1, T2 t2) {
-    {
-        t1 >= t2
-    };
+    { t1 >= t2 };
 };
 
 template<typename T1, typename T2>
@@ -452,51 +532,37 @@ concept IsComparable =
 
 template<typename T1, typename T2 = T1>
 concept IsEquatable = requires (T1 t1, T2 t2) {
-    {
-        t1 == t2
-    };
+    { t1 == t2 };
 };
 
 template<typename T1, typename T2>
 concept IsDivideable = requires (T1 t1, T2 t2) {
-    {
-        t1 / t2
-    };
+    { t1 / t2 };
 };
 
 template<typename T1, typename T2>
 concept IsMultipliable = requires (T1 t1, T2 t2) {
-    {
-        t1* t2
-    };
+    { t1 * t2 };
 };
 
 template<typename T1, typename T2>
 concept IsAddable = requires (T1 t1, T2 t2) {
-    {
-        t1 + t2
-    };
+    { t1 + t2 };
 };
 
 template<typename T1, typename T2>
 concept IsSubtractable = requires (T1 t1, T2 t2) {
-    {
-        t1 - t2
-    };
+    { t1 - t2 };
 };
 
 template<typename T, typename IndexType>
 concept IsIndexable = requires (T t, IndexType i) {
-    {
-        t[i]
-    };
+    { t[i] };
 };
 
 template<typename T>
 concept HasOperatorAdd = requires {
-    {
-        &T::operator+
-    };
+    { &T::operator+ };
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -678,58 +744,31 @@ struct IArithmetic
 
 template<typename T, typename U = T>
 concept IsArithmetic = requires (T a, U b) {
-    {
-        a + b
-    } -> ConvertibleTo<T>;
-    {
-        a += b
-    };
-    {
-        a - b
-    } -> ConvertibleTo<T>;
-    {
-        a -= b
-    };
-    {
-        a* b
-    } -> ConvertibleTo<T>;
-    {
-        a *= b
-    };
-    {
-        a / b
-    } -> ConvertibleTo<T>;
-    {
-        a /= b
-    };
+    { a + b } -> ConvertibleTo<T>;
+    { a += b };
+    { a - b } -> ConvertibleTo<T>;
+    { a -= b };
+    { a * b } -> ConvertibleTo<T>;
+    { a *= b };
+    { a / b } -> ConvertibleTo<T>;
+    { a /= b };
 };
 
 template<typename T>
 concept IsIterator = requires (T a) {
-    {
-        ++a
-    };
-    {
-        *a
-    };
-    {
-        a == a
-    } -> IsBool;
-    {
-        a != a
-    } -> IsBool;
+    { ++a };
+    { *a };
+    { a == a } -> IsBool;
+    { a != a } -> IsBool;
 };
 
 
 template<typename T>
 concept IsIterable = requires (T a) {
-    {
-        a.begin()
-    } -> IsIterator;
-    {
-        a.end()
-    } -> IsIterator;
+    { a.begin() } -> IsIterator;
+    { a.end() } -> IsIterator;
 };
+
 
 // namespace {
 

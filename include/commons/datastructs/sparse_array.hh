@@ -43,6 +43,10 @@ protected:
 }  // namespace impl
 
 
+struct SparseArrayBase
+{};
+
+
 ///
 /// An array that is optimized for having most of its elements zero or empty.
 /// In other words, it functions as an extremely large array where an element at a given index are most likely zero or
@@ -61,10 +65,7 @@ struct SparseArray
 public:
     SparseArray() { this->data = new Type*[256]{}; }
 
-    ~SparseArray()
-    {
-        forEach([](auto const& ptr) { delete ptr; });
-    }
+    ~SparseArray() { clear(); }
 
     void clear()
     {

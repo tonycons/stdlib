@@ -56,6 +56,3 @@ like make a union that stores pointers but specifically captures null.
 ```C++
 Union<int*, void*, char*, std::nullptr_t> q = nullptr;
 ```
-
-
-# Usage

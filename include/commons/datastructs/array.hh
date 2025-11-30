@@ -14,7 +14,6 @@
 
 #pragma once
 #include <commons/core.hh>
-#include "commons/datastructs/array_iterator.hh"
 #include <commons/datastructs/collection.hh>
 
 
@@ -119,6 +118,8 @@ public:
         if constexpr (L == ARRAY_LENGTH_UNSPECIFIED) {
             Base::_data = new T[v.size()];
             Base::_length = v.size();
+        } else {
+            Assert(v.size() <= L, ASMS_INVALID(v));
         }
         for (usize i = 0; i < v.size(); i++)
             Base::_data[i] = v.begin()[i];
@@ -189,7 +190,7 @@ public:
     /// Returns a new array which contains this array's elements repeated n times.
     /// @param count the number of times to repeat
     ///
-    auto times(Index const& count)
+    Array<T> times(Index const& count)
     {
         usize n = count.assertPositive();
         auto newArray = Array<T>(this->length() * n);
@@ -333,8 +334,8 @@ public:
     ///
     /// Index operator that does not perform bounds checking.
     ///
-    constexpr auto& operator()(Index i) UNSAFE({ return Base::_data[i.computeUnchecked(*this)]; });
-    constexpr auto const& operator()(Index i) const { UNSAFE(return Base::_data[i.computeUnchecked(*this)];) }
+    constexpr auto& operator()(Index i) noexcept UNSAFE({ return Base::_data[i.computeUnchecked(*this)]; });
+    constexpr auto const& operator()(Index i) const noexcept { UNSAFE(return Base::_data[i.computeUnchecked(*this)];) }
 
     ///
     /// 2D Indexing operator that does not perform bounds checking.
