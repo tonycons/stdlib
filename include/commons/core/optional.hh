@@ -59,7 +59,7 @@ public:
     ///
     /// Attempts to access the value. A trap occurs if there is no value.
     ///
-    constexpr T const& value() const { return Base::template get<T>(); }
+    constexpr inline T const& value() const { return Base::template get<T>(); }
     constexpr inline RefRemoved<T>* operator->() const noexcept { return const_cast<RefRemoved<T>*>(&this->value()); }
 
 

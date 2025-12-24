@@ -78,12 +78,12 @@ public:
     /// Print a value to the stream.
     /// @param arg The value
     ///
-    void print(auto const& value)
+    inline void print(auto const& value)
     {
         _print('`', ArrayRef<RefWrapper<Printable const>>{RefWrapper<Printable const>(PrintableT(value))});
     }
     template<int N>
-    void print(char const (&str)[N])
+    inline void print(char const (&str)[N])
     {
         writeBytes(str, max(N - 1, 0));
     }
@@ -93,7 +93,7 @@ public:
     /// @param sFmt The format string
     /// @param args The arguments
     ///
-    void print(StringRef const& sFmt, auto const&... args)
+    inline void print(StringRef const& sFmt, auto const&... args)
     {
         this->_print(sFmt, ArrayRef<RefWrapper<Printable const>>{(RefWrapper<Printable const>(PrintableT(args)))...});
     }
@@ -104,13 +104,13 @@ public:
     /// Print a value followed by a newline to the stream.
     /// @param arg The value
     ///
-    void println(auto const& value)
+    inline void println(auto const& value)
     {
         this->print(value);
         this->print(LS);
     }
     template<int N>
-    void println(char const (&str)[N])
+    inline void println(char const (&str)[N])
     {
         this->writeBytes(str, max(N - 1, 0));
         this->writeBytes(LS.data(), LS.sizeBytes());
@@ -121,7 +121,7 @@ public:
     /// @param sFmt The format string
     /// @param args The arguments
     ///
-    void println(StringRef sFmt, auto const&... args) { print(sFmt, args...), print(LS); }
+    inline void println(StringRef sFmt, auto const&... args) { print(sFmt, args...), print(LS); }
 
 
 private:

@@ -280,31 +280,29 @@ public:
 
 private:
     template<int = 0>
-    UNSAFE_BEGIN static String _fmt(char const* sFmt, ArrayRef<RefWrapper<Printable const>> const& objects)
+    static String _fmt(StringRef const& format, ArrayRef<RefWrapper<Printable const>> const& objects)
     {
-        auto result = String();
-        auto arg = objects.begin();
-        auto fmtPtr = sFmt;
+        String result;
+        auto fmtIter = format.begin();
+        auto objIter = objects.begin();
 
-        while (*fmtPtr != '`' && *fmtPtr != '\0') {
-            result.append(*fmtPtr);
-            __builtin_printf("(1) Format result is: %s\n", result.cstr());
-            fmtPtr++;
+        while (fmtIter.isNotEnd() && *fmtIter != '`') {
+            result.append(*fmtIter);
+            ++fmtIter;
         }
-        while (arg.hasNext()) {
-            Assert(*fmtPtr == '`', "More arguments than specified in format string");
-            (*arg)->output(result);
-            __builtin_printf("(2) Format result is: %s\n", result.cstr());
-            ++arg;
-            ++fmtPtr;
-            for (; *fmtPtr != '`' && *fmtPtr != '\0'; fmtPtr++) {
-                result.append(*fmtPtr);
-                __builtin_printf("(3) Format result is: %s\n", result.cstr());
+        while (objIter.isNotEnd()) {
+            Assert(fmtIter != format.end() && *fmtIter == '`', "More arguments than specified in format string");
+            String str;
+            (*objIter)->output(str);
+            result.append(str);
+            ++objIter;
+            ++fmtIter;
+            while (fmtIter.isNotEnd() && *fmtIter != '`') {
+                result.append(*fmtIter);
+                ++fmtIter;
             }
         }
-        __builtin_printf("(4) Format result is: %s\n", result.cstr());
         return result;
-        UNSAFE_END
     }
 };
 

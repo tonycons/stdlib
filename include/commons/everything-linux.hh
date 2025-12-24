@@ -3503,7 +3503,7 @@ public:
 
 
 
-    constexpr T const& value() const { return Base::template get<T>(); }
+    constexpr inline T const& value() const { return Base::template get<T>(); }
     constexpr inline RefRemoved<T>* operator->() const noexcept { return const_cast<RefRemoved<T>*>(&this->value()); }
 
 
@@ -7180,35 +7180,29 @@ public:
 
 private:
     template<int = 0>
-#pragma GCC diagnostic push
-# 283 "./include/commons/datastructs/string.hh"
-#pragma GCC diagnostic ignored "-Wunsafe-buffer-usage"
-# 283 "./include/commons/datastructs/string.hh"
-                 static String _fmt(char const* sFmt, ArrayRef<RefWrapper<Printable const>> const& objects)
+    static String _fmt(StringRef const& format, ArrayRef<RefWrapper<Printable const>> const& objects)
     {
-        auto result = String();
-        auto arg = objects.begin();
-        auto fmtPtr = sFmt;
+        String result;
+        auto fmtIter = format.begin();
+        auto objIter = objects.begin();
 
-        while (*fmtPtr != '`' && *fmtPtr != '\0') {
-            result.append(*fmtPtr);
-            __builtin_printf("(1) Format result is: %s\n", result.cstr());
-            fmtPtr++;
+        while (fmtIter.isNotEnd() && *fmtIter != '`') {
+            result.append(*fmtIter);
+            ++fmtIter;
         }
-        while (arg.hasNext()) {
-            Assert(*fmtPtr == '`', "More arguments than specified in format string");
-            (*arg)->output(result);
-            __builtin_printf("(2) Format result is: %s\n", result.cstr());
-            ++arg;
-            ++fmtPtr;
-            for (; *fmtPtr != '`' && *fmtPtr != '\0'; fmtPtr++) {
-                result.append(*fmtPtr);
-                __builtin_printf("(3) Format result is: %s\n", result.cstr());
+        while (objIter.isNotEnd()) {
+            Assert(fmtIter != format.end() && *fmtIter == '`', "More arguments than specified in format string");
+            String str;
+            (*objIter)->output(str);
+            result.append(str);
+            ++objIter;
+            ++fmtIter;
+            while (fmtIter.isNotEnd() && *fmtIter != '`') {
+                result.append(*fmtIter);
+                ++fmtIter;
             }
         }
-        __builtin_printf("(4) Format result is: %s\n", result.cstr());
         return result;
-#pragma GCC diagnostic pop
     }
 };
 
@@ -7807,12 +7801,12 @@ public:
 
     inline bool ok() { return status() == STATUS_OK; }
 # 81 "./include/commons/system/outstream.inl"
-    void print(auto const& value)
+    inline void print(auto const& value)
     {
         _print('`', ArrayRef<RefWrapper<Printable const>>{RefWrapper<Printable const>(PrintableT(value))});
     }
     template<int N>
-    void print(char const (&str)[N])
+    inline void print(char const (&str)[N])
     {
         writeBytes(str, max(N - 1, 0));
     }
@@ -7822,7 +7816,7 @@ public:
 
 
 
-    void print(StringRef const& sFmt, auto const&... args)
+    inline void print(StringRef const& sFmt, auto const&... args)
     {
         this->_print(sFmt, ArrayRef<RefWrapper<Printable const>>{(RefWrapper<Printable const>(PrintableT(args)))...});
     }
@@ -7833,13 +7827,13 @@ public:
 
 
 
-    void println(auto const& value)
+    inline void println(auto const& value)
     {
         this->print(value);
         this->print(LS);
     }
     template<int N>
-    void println(char const (&str)[N])
+    inline void println(char const (&str)[N])
     {
         this->writeBytes(str, max(N - 1, 0));
         this->writeBytes(LS.data(), LS.sizeBytes());
@@ -7850,7 +7844,7 @@ public:
 
 
 
-    void println(StringRef sFmt, auto const&... args) { print(sFmt, args...), print(LS); }
+    inline void println(StringRef sFmt, auto const&... args) { print(sFmt, args...), print(LS); }
 
 
 private:
