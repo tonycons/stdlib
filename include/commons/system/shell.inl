@@ -19,11 +19,11 @@ namespace cm {
 ///
 /// An instance of a system shell.
 ///
-struct Shell
-{
-    virtual ~Shell() = default;
-    virtual int execute(String const& command, Optional<OutStream&> const& output) = 0;
-};
+// struct Shell
+// {
+//     virtual ~Shell() = default;
+//     virtual int execute(String const& command, Optional<OutStream&> const& output) = 0;
+// };
 
 }  // namespace cm
 #endif

@@ -40,6 +40,9 @@
 #include HEADER(core/function.hh)             // IWYU pragma: keep
 #include HEADER(core/intbase.hh)              // IWYU pragma: keep
 #include HEADER(core/assert.hh)               // IWYU pragma: keep
+#include HEADER(core/property.hh)             // IWYU pragma: keep
+#include HEADER(core/pointer.hh)              // IWYU pragma: keep
+#include HEADER(core/class.hh)                // IWYU pragma: keep
 #include HEADER(core/union.hh)                // IWYU pragma: keep
 #include HEADER(core/result.hh)               // IWYU pragma: keep
 #include HEADER(core/optional.hh)             // IWYU pragma: keep
@@ -54,11 +57,10 @@
 #include HEADER(core/math_int.hh)             // IWYU pragma: keep
 #include HEADER(core/math_float.hh)           // IWYU pragma: keep
 #include HEADER(core/math_double.hh)           // IWYU pragma: keep
-#include HEADER(core/pointer.hh)              // IWYU pragma: keep
-#include HEADER(core/property.hh)             // IWYU pragma: keep
+
+
 #include HEADER(core/rng.hh)                  // IWYU pragma: keep
 #include HEADER(core/hash.hh)                 // IWYU pragma: keep
-#include HEADER(core/class.hh)                // IWYU pragma: keep
 
 #include HEADER(core/search.hh)               // IWYU pragma: keep
 #include HEADER(core/predicates.hh)           // IWYU pragma: keep

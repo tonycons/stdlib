@@ -35,7 +35,6 @@
 #include HEADER(system/streamstatus.inl)   // IWYU pragma: keep
 #include HEADER(system/outstream.inl)      // IWYU pragma: keep
 #include HEADER(system/stringstream.inl)   // IWYU pragma: keep
-#include HEADER(system/fileoutstream.inl)  // IWYU pragma: keep
 #include HEADER(system/listdir.inl)        // IWYU pragma: keep
 #include HEADER(system/shell.inl)          // IWYU pragma: keep
 
@@ -70,7 +69,7 @@ inline Optional<OutStream&> const stderr = None;
 /// An Optional system shell e.g. Bash.
 /// It may be set to None on systems that don't have a shell.
 ///
-inline Optional<Shell&> const shell = None;
+inline Optional<int> const shell = None;
 
 void _emergencyPrint(char const* str) {}
 

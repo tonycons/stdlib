@@ -37,6 +37,9 @@ public:
 #endif
 
     virtual ~OutStream() = default;
+    constexpr OutStream() = default;
+    constexpr OutStream(OutStream const&) = default;
+    constexpr OutStream& operator=(OutStream const&) = default;
 
     ///
     /// Adds a series of bytes to the currently pending data.

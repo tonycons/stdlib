@@ -28,7 +28,6 @@ int levenshteinDistance(StringRef s1, StringRef s2)
         (m - 1, n - 1);                               // final result
 }
 
-
 int main()
 {
     stdout->println(

@@ -25,12 +25,9 @@ private:
 public:
     LinuxStandardOutStream() = default;
     ~LinuxStandardOutStream() override = default;
+    constexpr LinuxStandardOutStream(LinuxStandardOutStream const&) = default;
+    constexpr LinuxStandardOutStream& operator=(LinuxStandardOutStream const&) = default;
 
-    constexpr static LinuxStandardOutStream& instance()
-    {
-        static LinuxStandardOutStream s;
-        return s;
-    }
 
     virtual OutStream& writeBytes(void const* data, size_t sizeBytes) override
     {
@@ -66,13 +63,13 @@ class LinuxStandardErrOutStream final : public LinuxStandardOutStream {
 /// An Optional standard output stream.
 /// It may be set to None on systems that don't have a standard output stream.
 ///
-inline Optional<OutStream&> const stdout = LinuxStandardOutStream::instance();
+inline Optional<LinuxStandardOutStream> const stdout = LinuxStandardOutStream();
 
 ///
 /// An Optional standard error stream.
 /// It may be set to None on systems that don't have a standard error stream.
 ///
-inline Optional<OutStream&> const stderr = LinuxStandardOutStream::instance();
+inline Optional<LinuxStandardErrOutStream> const stderr = LinuxStandardErrOutStream();
 
 
 #endif

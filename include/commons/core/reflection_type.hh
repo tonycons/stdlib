@@ -342,6 +342,9 @@ concept IsFloatingPoint = IsUnderlyingTypeOneOf<T, float, double, long double>;
 template<typename T>
 concept IsChar = IsUnderlyingTypeOneOf<T, char, wchar_t, char8_t, char16_t, char32_t>;
 
+template<typename T>
+concept IsPrimitiveType = IsPointer<T> || IsIntegerPrimitiveType<T> || IsBool<T> || IsFloatingPoint<T> || IsChar<T>;
+
 
 template<typename T>
 concept IsMutable = requires (T a, T b) {
@@ -377,31 +380,47 @@ using SelectType = typename TSelectType<index, A, B>::Type;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-template<class T>
+template<typename T>
 concept DefaultConstructible = requires { T{}; };
 
-template<class T, typename... Args>
+template<typename T, typename... Args>
 concept Constructible = __is_constructible(CVRefRemoved<T>, Args...);
 
-template<class T>
+template<typename T>
 concept CopyConstructible = Constructible<T, T const&>;
+
+template<typename T>
+concept CopyAssignable = requires (T& a, T const& b) {
+    { a = b };
+};
+
+template<typename T, typename U = T>
+concept MoveConstructible = Constructible<T, U&&>;
+
+template<typename T, typename U = T>
+concept MoveAssignable = requires (T& a, U&& b) {
+    { a = b };
+};
 
 template<typename T>
 concept TriviallyCopyConstructible = __is_trivially_copyable(T);
 
 template<typename T>
-concept TriviallyDefaultConstructible = __is_trivially_constructible(T);
-
-template<typename T, typename U = T>
-concept TriviallyAssignable =
-    IsFloatingPoint<T> || IsInteger<T> || IsPointer<T> ||
-    /* ---> This shit right here is false for primitive types. why? ---> */ __is_trivially_assignable(T, U);
+concept TriviallyMoveConstructible = __is_trivially_copyable(T) && __is_trivially_constructible(T, T&&);
 
 template<typename T>
-concept TriviallyDestructible = __is_trivially_destructible(T);
+concept TriviallyDefaultConstructible = IsPrimitiveType<T> || __is_trivially_constructible(T);
 
-template<typename... Types>
-concept AllTriviallyDestructible = ((TriviallyDestructible<Types>) || ...);
+template<typename T, typename U = T>
+concept TriviallyCopyAssignable =
+    IsPrimitiveType<T> ||
+    /* ---> This shit right here is false for primitive types. why? ---> */ __is_trivially_assignable(T, U);
+
+template<typename T, typename U = T>
+concept TriviallyMoveAssignable = (IsPrimitiveType<T> && IsPrimitiveType<U>) || __is_trivially_assignable(T, U&&);
+
+template<typename T>
+concept TriviallyDestructible = IsPrimitiveType<T> || __is_trivially_destructible(T);
 
 ///
 /// True if a type is trivially relocatable
@@ -623,10 +642,10 @@ concept HasOperatorAdd = requires {
 template<typename T>
 concept IsPrimitiveData = bool{
     TriviallyDestructible<T> && TriviallyCopyConstructible<T> && TriviallyDefaultConstructible<T> &&
-    TriviallyAssignable<T>};
+    TriviallyCopyAssignable<T>};
 
 static_assert(TriviallyDestructible<char>);
-static_assert(TriviallyAssignable<char>);
+static_assert(TriviallyCopyAssignable<char>);
 
 template<bool B, class T>
 class TConstIf;
@@ -681,15 +700,15 @@ constexpr inline bool is_instance_of_template<U<Vs...>, U> = true;
  */
 class NonCopyable {
 protected:
-    NonCopyable() = default;
-    ~NonCopyable() = default;
+    constexpr NonCopyable() = default;
+    constexpr ~NonCopyable() = default;
 
 public:
-    NonCopyable(NonCopyable const&) = delete;
-    NonCopyable& operator=(NonCopyable const&) = delete;
+    constexpr NonCopyable(NonCopyable const&) = delete;
+    constexpr NonCopyable& operator=(NonCopyable const&) = delete;
 
-    NonCopyable(NonCopyable&&) noexcept(true) = default;
-    NonCopyable& operator=(NonCopyable&&) noexcept(true) = default;
+    constexpr NonCopyable(NonCopyable&&) noexcept(true) = default;
+    constexpr NonCopyable& operator=(NonCopyable&&) noexcept(true) = default;
 };
 
 template<typename T, unsigned ID>

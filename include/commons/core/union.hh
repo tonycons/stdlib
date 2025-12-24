@@ -31,34 +31,102 @@
 
 namespace cm {
 
-/// Defines a base class for the union which has the following purpose:
-/// If any of the types in the union are not trivially destructible,
-/// then the class defines a pointer to the destructor of the current type in the union.
-/// otherwise, the class is empty.
-/// this is an optimization allowing the union to omit the destructor pointer if it is not necessary.
+namespace impl {
+
+template<bool>
+class UnionDestructorCallback {};
+
+template<>
+class UnionDestructorCallback<true> {
+protected:
+    CFunction<void(void*)> _dtor;
+};
+
+template<bool>
+class UnionCopyConstructorCallback {};
+
+template<>
+class UnionCopyConstructorCallback<true> {
+protected:
+    CFunction<void(void*, void const*)> _copyCtor;
+};
+
+template<bool>
+class UnionCopyAssignmentCallback {};
+
+template<>
+class UnionCopyAssignmentCallback<true> {
+protected:
+    CFunction<void(void*, void const*)> _copyAssignOp;
+};
+
+template<bool>
+class UnionMoveConstructorCallback {};
+
+template<>
+class UnionMoveConstructorCallback<true> {
+protected:
+    CFunction<void(void*, void const*)> _moveCtor;
+};
+
+template<bool>
+class UnionMoveAssignmentCallback {};
+
+template<>
+class UnionMoveAssignmentCallback<true> {
+protected:
+    CFunction<void(void*, void const*)> _moveAssignOp;
+};
+
 template<typename... Types>
-consteval auto UnionExtraData()
+struct UnionExtraVariables
 {
-    if constexpr (AllTriviallyDestructible<Types...>) {
-        struct Empty
-        {
-        } static constexpr base;
-        return base;
+    constexpr static bool triviallyDestructible = ((TriviallyDestructible<Types>) && ...);
+    constexpr static bool triviallyCopyConstructible = ((TriviallyCopyConstructible<Types>) && ...);
+    constexpr static bool triviallyCopyAssignable = ((TriviallyCopyAssignable<Types>) && ...);
+    constexpr static bool triviallyMoveConstructible = ((TriviallyMoveConstructible<Types>) && ...);
+    constexpr static bool triviallyMoveAssignable = ((TriviallyMoveAssignable<Types>) && ...);
+};
+
+/// Defines a base class for the union which has the following purpose:
+/// If any of the types in the union are not trivially destructible/trivially copy constructible/trivially assignable,
+/// then the class defines a pointer to the destructor/copy constructor/assignment operator of the current type in the
+/// union. otherwise, the class is empty. this is an optimization allowing the union to omit these function pointers if
+/// it is not necessary.
+template<typename... Types>
+consteval auto unionMetadata()
+{
+    using S = UnionExtraVariables<Types...>;
+
+    if constexpr (
+        S::triviallyDestructible && S::triviallyCopyConstructible && S::triviallyCopyAssignable &&
+        S::triviallyMoveConstructible && S::triviallyMoveAssignable)
+    {
+        constexpr static S s;
+        return s;
     } else {
-        struct DestructorPointer
+        struct R : S
         {
-            CFunction<void(void*)> _dtor;
-        } static constexpr base;
-        return base;
+            Class const* _class = nullptr;
+        } static constexpr r;
+        return r;
     }
 }
 
+
+}  // namespace impl
+
+
 template<typename... Types>
-class Union : decltype(UnionExtraData<Types...>()) {
+class Union : decltype(impl::unionMetadata<Types...>()) {
 public:
-    using ExtraData = decltype(UnionExtraData<Types...>());
-    static consteval bool hasExtraData() { return sizeof(ExtraData) > 1; }
-    static consteval bool needsDestructor() { return hasExtraData(); }
+    using Metadata = decltype(impl::unionMetadata<Types...>());
+    static consteval bool hasMetadata() { return sizeof(Metadata) > 1; }
+    static consteval bool hasNonTrivialDestructor() { return !Metadata::triviallyDestructible; }
+    static consteval bool hasNonTrivialCopyConstructor() { return !Metadata::triviallyCopyConstructible; }
+    static consteval bool hasNonTrivialCopyAssignment() { return !Metadata::triviallyCopyAssignable; }
+    static consteval bool hasNonTrivialMoveConstructor() { return !Metadata::triviallyMoveConstructible; }
+    static consteval bool hasNonTrivialMoveAssignment() { return !Metadata::triviallyMoveAssignable; }
 
     /// Used to keep track of the type that was chosen to be initialized in the Union constructor.
     template<typename T, int I>
@@ -117,13 +185,15 @@ private:
     template<typename matchFn, int I, typename From, typename T1, typename... Tn>
     struct Initializer<matchFn, I, From, T1, Tn...>
     {
-        constexpr static auto match(void* data, From const& value)
+        template<typename V>
+        constexpr static auto match(void* data, V&& value)
         {
+            static_assert(IsSame<CVRefRemoved<V>, CVRefRemoved<From>>);
             if constexpr (matchFn::template match<From, T1>()) {
-                new (data) T1(value);
+                new (data) T1(Forward<V>(value));
                 return InitSuccess<T1, I>{};
             } else {
-                return Initializer<matchFn, I + 1, From, Tn...>::match(data, value);
+                return Initializer<matchFn, I + 1, From, Tn...>::match(data, Forward<V>(value));
             }
         }
     };
@@ -131,10 +201,15 @@ private:
     template<typename matchFn, int I, typename From, typename To>
     struct Initializer<matchFn, I, From, To>
     {
-        constexpr static auto match(void* data, From const& value)
+        template<typename V>
+        constexpr static auto match(void* data, V&& value)
         {
+            static_assert(IsSame<CVRefRemoved<V>, CVRefRemoved<From>>);
             if constexpr (matchFn::template match<From, To>()) {
-                new (data) To(value);
+                _Pragma("GCC diagnostic push");
+                _Pragma("GCC diagnostic ignored \"-Wsign-conversion\"");
+                new (data) To(Forward<V>(value));
+                _Pragma("GCC diagnostic pop");
                 return InitSuccess<To, I>{};
             } else {
                 return InitFailure{};
@@ -145,7 +220,11 @@ private:
     template<typename matchFn, int I, typename U>
     struct Initializer<matchFn, I, U>
     {
-        constexpr static auto match(void*, U const&) { return InitFailure{}; }
+        template<typename V>
+        constexpr static auto match(void*, V&&)
+        {
+            return InitFailure{};
+        }
     };
 
     /**
@@ -155,75 +234,177 @@ private:
     template<int I, typename U, typename... Tn>
     struct TryInit
     {
-        constexpr static auto next(void* data, U const& value)
+        template<typename V>
+        constexpr static auto next(void* data, V&& value)
         {
             // attemps to initialize the union with the first type that is a strong match to value.
-            if constexpr (IsSame<decltype(Initializer<Strong, I, U, Tn...>::match(data, value)), InitFailure>) {
+            if constexpr (IsSame<
+                              decltype(Initializer<Strong, I, U, Tn...>::match(data, Forward<V>(value))), InitFailure>)
+            {
                 // otherwise, the first type that is a medium match to value.
-                if constexpr (IsSame<decltype(Initializer<Medium, I, U, Tn...>::match(data, value)), InitFailure>) {
+                if constexpr (IsSame<
+                                  decltype(Initializer<Medium, I, U, Tn...>::match(data, Forward<V>(value))),
+                                  InitFailure>)
+                {
                     // otherwise, the first type that is a weak match to value.
-                    return Initializer<Weak, I, U, Tn...>::match(data, value);
+                    return Initializer<Weak, I, U, Tn...>::match(data, Forward<V>(value));
                 } else {
-                    return Initializer<Medium, I, U, Tn...>::match(data, value);
+                    return Initializer<Medium, I, U, Tn...>::match(data, Forward<V>(value));
                 }
             } else {
-                return Initializer<Strong, I, U, Tn...>::match(data, value);
+                return Initializer<Strong, I, U, Tn...>::match(data, Forward<V>(value));
             }
         }
     };
 
     template<typename T>
-    constexpr inline void storeDestructorFor()
+    constexpr inline void storeCallbacksFor()
     {
-        if constexpr (needsDestructor()) {
-            ExtraData::_dtor = [](void* obj) {
-                static_cast<T*>(obj)->~T();
-            };
+        if constexpr (hasMetadata()) {
+            Metadata::_class = &ClassOf<T>;
         }
     }
 
 public:
     ///
-    /// Destructor for the union. If all types are trivially destructible, it is also trivial. Otherwise, it destroys
-    /// whichever type is active in the union.
+    /// Destructor for the union. If all types are trivially destructible, it is also trivial. Otherwise, it
+    /// destroys whichever type is active in the union.
     ///
-    constexpr ~Union() requires (!needsDestructor())
+    constexpr ~Union() requires (!hasNonTrivialDestructor())
     = default;
-    constexpr ~Union() requires (needsDestructor())
+    constexpr ~Union() requires (hasNonTrivialDestructor())
     {
-        ExtraData::_dtor(_data);
-        ;
+        if (Metadata::_class) {
+            Metadata::_class->destructor(_data);
+        }
+    }
+
+    ///
+    /// Copy constructor
+    ///
+    constexpr inline Union(Union const& other) requires (!hasNonTrivialCopyConstructor())
+    = default;
+    constexpr inline Union(Union const& other) requires (hasNonTrivialCopyConstructor())
+    {
+        Metadata::_class = other._class;
+        _tag = other._tag;
+        Assert(Metadata::_class->copyConstructor, "Type in union not copy constructible");
+        Metadata::_class->copyConstructor(_data, other._data);
+    }
+
+    ///
+    /// Copy assignment operator
+    ///
+    constexpr inline Union& operator=(Union const& other)
+        requires (!hasNonTrivialDestructor() && !hasNonTrivialCopyAssignment() && !hasNonTrivialCopyConstructor())
+        = default;
+    constexpr inline Union& operator=(Union const& other)
+        requires (hasNonTrivialDestructor() || hasNonTrivialCopyAssignment() || hasNonTrivialCopyConstructor())
+    {
+        if (_tag == other._tag) {  // if the type stored in this is the same type stored in other, call its copy
+                                   // assignment operator.
+            if constexpr (hasNonTrivialCopyAssignment()) {
+                Assert(Metadata::_class->copyAssignOperator, "Type in union not copy assignable");
+                Metadata::_class->copyAssignOperator(_data, other._data);
+            } else {
+                __builtin_memcpy_inline(_data, other._data, sizeof(_data));
+            }
+        } else {
+            // otherwise, if other stores a different type, destroy the current type and call the copy constructor
+            if constexpr (hasNonTrivialDestructor()) {
+                Metadata::_class->destructor(_data);
+            }
+            Metadata::_class = other._class;
+            if constexpr (hasNonTrivialCopyConstructor())  //
+            {
+                Assert(Metadata::_class->copyConstructor, "Type in union not copy constructible");
+                Metadata::_class->copyConstructor(_data, other._data);
+            } else {
+                __builtin_memcpy_inline(_data, other._data, sizeof(_data));
+            }
+            _tag = other._tag;
+        }
+        return *this;
+    }
+
+    ///
+    /// Move constructor
+    ///
+    constexpr inline Union(Union&& other) requires (!hasNonTrivialMoveConstructor())
+    = default;
+    constexpr inline Union(Union&& other) requires (hasNonTrivialMoveConstructor())
+    {
+        Metadata::_class = other._class;
+        _tag = other._tag;
+        Assert(Metadata::_class->moveConstructor, "Type in union not move constructible");
+        Metadata::_class->moveConstructor(_data, other._data);
+    }
+
+    ///
+    /// Move assignment operator
+    ///
+    constexpr inline Union& operator=(Union&& other)
+        requires (!hasNonTrivialDestructor() && !hasNonTrivialMoveAssignment() && !hasNonTrivialMoveConstructor())
+        = default;
+    constexpr inline Union& operator=(Union&& other)
+        requires (hasNonTrivialDestructor() || hasNonTrivialMoveAssignment() || hasNonTrivialMoveConstructor())
+    {
+        if (_tag == other._tag) {  // if the type stored in this is the same type stored in other, call its copy
+                                   // assignment operator.
+            if constexpr (hasNonTrivialMoveAssignment()) {
+                Assert(Metadata::_class->moveAssignOperator, "Type in union not move assignable");
+                Metadata::_class->moveAssignOperator(_data, other._data);
+            } else {
+                __builtin_memcpy_inline(_data, other._data, sizeof(_data));
+            }
+        } else {  // otherwise, if other stores a different type, destroy the current type and call the copy constructor
+            if constexpr (hasNonTrivialDestructor()) {
+                Metadata::_class->destructor(_data);
+            }
+            Metadata::_class = other._class;
+            if constexpr (hasNonTrivialMoveConstructor()) {
+                Assert(Metadata::_class->moveConstructor, "Type in union not move constructible");
+                Metadata::_class->moveConstructor(_data, other._data);
+            } else {
+                __builtin_memcpy_inline(_data, other._data, sizeof(_data));
+            }
+            _tag = other._tag;
+        }
+        if constexpr (hasNonTrivialDestructor()) {
+            other._class = nullptr;
+        }
+        return *this;
     }
 
     ///
     /// Constructs the union from a specific type.
     ///
     template<typename GivenType>
-    constexpr Union(GivenType const& t1)
+    constexpr Union(GivenType&& t1)
         // "None of the union types can be initialized by the given type."
-        requires (!IsSame<decltype(TryInit<0, GivenType, Types...>::next(_data, t1)), InitFailure>)
+        requires (!IsSame<decltype(TryInit<0, GivenType, Types...>::next(_data, Forward<GivenType>(t1))), InitFailure>)
     {
-        using Init = decltype(TryInit<0, GivenType, Types...>::next(_data, t1));
-        TryInit<0, GivenType, Types...>::next(_data, t1);
+        using Init = decltype(TryInit<0, GivenType, Types...>::next(_data, Forward<GivenType>(t1)));
+        TryInit<0, GivenType, Types...>::next(_data, Forward<GivenType>(t1));
         _tag = static_cast<unsigned char>(Init::Tag);
-        storeDestructorFor<typename Init::WhichOne>();
+        storeCallbacksFor<typename Init::WhichOne>();
     }
 
     ///
     /// Changes the type currently in the union.
     ///
     template<typename GivenType>
-    constexpr Union& operator=(GivenType const& t1)
+    constexpr Union& operator=(GivenType&& t1)
     {
-        using Init = decltype(TryInit<0, GivenType, Types...>::next(_data, t1));
+        using Init = decltype(TryInit<0, GivenType, Types...>::next(_data, Forward<GivenType>(t1)));
         auto newTag = static_cast<unsigned char>(Init::Tag);
         if (_tag != newTag) {
-            if constexpr (needsDestructor()) {
-                ExtraData::_dtor(_data);
+            if constexpr (hasNonTrivialDestructor()) {
+                Metadata::_dtor(_data);
             }
             _tag = newTag;
-            TryInit<0, GivenType, Types...>::next(_data, t1);
-            storeDestructorFor<typename Init::WhichOne>();
+            TryInit<0, GivenType, Types...>::next(_data, Forward<GivenType>(t1));
+            storeCallbacksFor<typename Init::WhichOne>();
         }
         return *this;
     }
@@ -234,11 +415,24 @@ public:
     template<typename T>
     constexpr inline bool is() const noexcept
     {
-        using Init = decltype(TryInit<0, T, Types...>::next(const_cast<u8*>(_data), _ref<T>()));
-        if constexpr (IsSame<Init, InitFailure>) {
-            return false;
+        if constexpr (CopyConstructible<T>) {
+            auto const& k = (_ref<T>());
+            using Init = decltype(TryInit<0, T, Types...>::next(const_cast<u8*>(_data), k));
+            if constexpr (IsSame<Init, InitFailure>) {
+                return false;
+            } else {
+                return _tag == Init::Tag;
+            }
+        } else if constexpr (MoveConstructible<T>) {
+            using Init = decltype(TryInit<0, T, Types...>::template next<T&&>(
+                const_cast<u8*>(_data), static_cast<T&&>(const_cast<T&>(_ref<T>()))));
+            if constexpr (IsSame<Init, InitFailure>) {
+                return false;
+            } else {
+                return _tag == Init::Tag;
+            }
         } else {
-            return _tag == Init::Tag;
+            static_assert(false, "Unhandled edge case");
         }
     }
 
@@ -246,7 +440,7 @@ public:
     /// Unsafe-- effectively returns value of reinterpret_cast<T*>(union.data);
     ///
     template<typename T>
-    NODISCARD inline auto const& _ref() const noexcept
+    NODISCARD inline T const& _ref() const noexcept
     {
         if constexpr (IsReference<T>) {
             using U = RefRemoved<T>;
@@ -257,22 +451,33 @@ public:
             return ref;
         }
     }
+    template<typename T>
+    NODISCARD inline T& _ref() noexcept
+    {
+        return const_cast<T&>(static_cast<Union const*>(this)->_ref<T>());
+    }
 
     ///
     /// Gets the active type of the union as type T, expects you to have already checked that it is type T.
     ///
     template<typename T>
-    NODISCARD inline auto get() const noexcept
+    NODISCARD inline T const& get() const noexcept
     {
         Assert(is<T>());
         return const_cast<ConstRemoved<decltype(_ref<T>())>>(_ref<T>());
     }
+    template<typename T>
+    NODISCARD inline T& get() noexcept
+    {
+        return const_cast<T&>(static_cast<Union const*>(this)->get<T>());
+    }
 
     ///
-    /// Gets the active type of the union as type T, otherwise, if the active type is not T, returns a default value.
+    /// Gets the active type of the union as type T, otherwise, if the active type is not T, returns a default
+    /// value.
     ///
     template<typename T>
-    NODISCARD inline auto getOrDefault(T const& defaultValue) const noexcept
+    NODISCARD inline T const& getOrDefault(T const& defaultValue) const noexcept
     {
         if (is<T>()) {
             return const_cast<ConstRemoved<decltype(_ref<T>())>>(_ref<T>());

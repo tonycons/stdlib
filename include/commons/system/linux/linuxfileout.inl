@@ -18,8 +18,11 @@
 ///
 /// Linux implementation for a stream that writes to a file
 ///
-struct LinuxFileOutStream final : public OutStream
+struct LinuxFileOutStream final : public OutStream, public NonCopyable
 {
+    constexpr LinuxFileOutStream(LinuxFileOutStream&& other) = default;
+    constexpr LinuxFileOutStream& operator=(LinuxFileOutStream&& other) = default;
+
     int _fd = 0;
     Status _status = STATUS_OK;
     Array<u8> _buffer;
@@ -93,11 +96,16 @@ struct LinuxFileOutStream final : public OutStream
         }
     }
 
+
     ///
     /// Destructor
     ///
     inline ~LinuxFileOutStream() override
     {
+        if (_fd < 3) {
+            return;
+        }
+
         // TODO: maybe warn if file destroyed without flushing? if _bufferUsed != 0 ...
         this->flush();
         (void)this->close();
@@ -178,19 +186,22 @@ struct LinuxFileOutStream final : public OutStream
 };
 
 ///
-/// Creates a file descriptor for writing, assuming file exists
-/// @param path Absolute path to the file
-/// @param bufferCapacity An optional capacity for the buffer, default 4KB
+/// A stream that writes to a file.
 ///
-inline FileOutStream::FileOutStream(String const& path, Optional<usize> const& bufferCapacity)
-    : Optional<OutStream&>(*new LinuxFileOutStream(path, bufferCapacity))
-{}
-
-inline FileOutStream::~FileOutStream()
+struct FileOutStream : public Optional<LinuxFileOutStream>
 {
-    if (this->hasValue()) {
-        delete &this->value();
-    }
-}
+    using Optional<LinuxFileOutStream>::Optional;
+
+    ///
+    /// Creates a file descriptor for writing, assuming file exists
+    /// @param path Absolute path to the file
+    /// @param bufferCapacity An optional capacity for the buffer, default 4KB
+    ///
+    FileOutStream(String const& path, Optional<usize> const& bufferCapacity = 4_KB)
+        : Optional<LinuxFileOutStream>(LinuxFileOutStream(path, bufferCapacity))
+    {}
+
+    ~FileOutStream() = default;
+};
 
 #endif

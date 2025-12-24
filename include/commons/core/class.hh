@@ -35,6 +35,9 @@ public:
     CFunction<void(void*)> destructor;
     CFunction<void(void*)> defaultConstructor;
     CFunction<void(void*, void const*)> copyConstructor;
+    CFunction<void(void*, void const*)> copyAssignOperator;
+    CFunction<void(void*, void*)> moveConstructor;
+    CFunction<void(void*, void*)> moveAssignOperator;
     u32 sizeBytes;
     u32 isPrimitive : 1;
     u32 isSigned : 1;
@@ -76,19 +79,34 @@ public:
         result.isFloatingPoint = IsFloatingPoint<T>;
         result.isInteger = IsInteger<T>;
 
-        if constexpr (!TriviallyDestructible<T>) {
-            result.destructor = [](void* ptr) -> void {
+        result.destructor = [](void* ptr) -> void {
+            if constexpr (!TriviallyDestructible<T>) {
                 reinterpret_cast<T*>(ptr)->~T();
-            };
-        }
-        if constexpr (!TriviallyDefaultConstructible<T> && DefaultConstructible<T>) {
+            }
+        };
+        if constexpr (DefaultConstructible<T>) {
             result.defaultConstructor = [](void* ptr) -> void {
                 new (ptr) T();
             };
         }
-        if constexpr (!TriviallyCopyConstructible<T> && CopyConstructible<T>) {
+        if constexpr (CopyConstructible<T>) {
             result.copyConstructor = [](void* dst, void const* src) -> void {
-                new (dst) T(*reinterpret_cast<T const*>(src));
+                new (dst) T(*static_cast<T const*>(src));
+            };
+        }
+        if constexpr (CopyAssignable<T>) {
+            result.copyAssignOperator = [](void* left, void const* right) -> void {
+                *(static_cast<T*>(left)) = (*static_cast<T const*>(right));
+            };
+        }
+        if constexpr (MoveConstructible<T>) {
+            result.moveConstructor = [](void* left, void* right) -> void {
+                new (left) T(static_cast<T&&>(*static_cast<T*>(right)));
+            };
+        }
+        if constexpr (MoveAssignable<T>) {
+            result.moveAssignOperator = [](void* left, void* right) -> void {
+                *(static_cast<T*>(left)) = static_cast<T&&>(*static_cast<T*>(right));
             };
         }
         return result;

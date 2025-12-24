@@ -18,20 +18,15 @@
 #pragma once
 #ifdef __inline_sys_header__
 
-class LinuxShell : public Shell {
-public:
-    LinuxShell() = default;
-    ~LinuxShell() override = default;
+struct LinuxShell : NonCopyable
+{
+    constexpr LinuxShell() noexcept = default;
+    constexpr LinuxShell(LinuxShell&&) noexcept = default;
+    constexpr LinuxShell& operator=(LinuxShell&&) noexcept = default;
+    constexpr ~LinuxShell() noexcept = default;
 
-    inline static LinuxShell& instance()
-    {
-        static LinuxShell s;
-        return s;
-    }
 
-    inline static auto _escapeCommand(String const& command) { return command.replace("\"", "\\\""); }
-
-    virtual int execute(String const& command, Optional<OutStream&> const& output) override
+    inline int execute(String const& command, Optional<OutStream*> const& output)
     {
         //__builtin_printf("Command is this: %s\n", command.cstr());
         auto s = _escapeCommand(command);
@@ -43,15 +38,15 @@ public:
         if (output != None) {
             for (int value = fgetc(fp); value != EOF; value = fgetc(fp)) {
                 auto byte = char(value);
-                output->writeBytes(&byte, 1);
+                output.value()->writeBytes(&byte, 1);
             }
         }
         return pclose(fp);
     }
+
+    inline String _escapeCommand(String const& command) { return command.replace("\"", "\\\""); }
 };
 
-
-template<int = 0>
-Optional<Shell&> const shell = LinuxShell::instance();
+inline Optional<LinuxShell> const shell = LinuxShell();
 
 #endif
