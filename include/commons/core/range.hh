@@ -13,7 +13,9 @@
 */
 
 #pragma once
-
+#ifndef __inline_core_header__
+#warning Do not include this file directly; include "core.hh" instead
+#else
 
 namespace cm {
 
@@ -81,3 +83,4 @@ Range(T const&, T const&) -> Range<T>;
 // Range(T const&, U const&) -> Range<T>;
 
 }  // namespace cm
+#endif

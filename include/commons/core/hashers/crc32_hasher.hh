@@ -36,7 +36,9 @@ struct Crc32
     constexpr static auto const& table()
     {
         constexpr static VectorU32x<256> tbl = {
-#include "../../resources/crc32_castagnoli_table.csv"
+        // clang-format off
+#include HEADER(resources/crc32_castagnoli_table.csv)
+            // clang-format on
         };
         return tbl;
     }

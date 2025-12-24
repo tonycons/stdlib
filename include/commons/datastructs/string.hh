@@ -13,9 +13,9 @@
 */
 
 #pragma once
-#include "commons/datastructs/array_list.hh"
-#include "../core.hh"
-#include "../resources/OneCharStringTable.hh"
+#ifndef __inline_core_header__
+#warning Do not include this file directly; include "datastructs.hh" instead
+#else
 
 
 namespace cm {
@@ -323,3 +323,4 @@ constexpr inline void PrintableT<T>::output(String& result) const
 // static_assert(IsDerivedFrom<Array<char>, String>);
 
 }  // namespace cm
+#endif

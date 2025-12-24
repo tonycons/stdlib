@@ -1,3 +1,5 @@
+#include <commons/system.hh>
+#include <commons/datastructs.hh>
 #include <commons/startup.hh>
 // #define TEST_THAT_WARNINGS_ARE_SHOWN 0
 #include "testoptional.cc"

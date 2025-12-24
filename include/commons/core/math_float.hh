@@ -13,7 +13,9 @@
 */
 
 #pragma once
-#ifdef __inline_core_header__
+#ifndef __inline_core_header__
+#warning Do not include this file directly; include "core.hh" instead
+#else
 
 
 namespace cm {
@@ -384,5 +386,4 @@ static_assert(Float.trunc(1.33f) == 1.0f);
 
 }  // namespace cm
 
-#include "math_double.hh"  // IWYU pragma: keep
 #endif

@@ -1,6 +1,8 @@
 #pragma once
 
-#include "../core.hh"
+#ifndef __inline_core_header__
+#warning Do not include this file directly; include "core.hh" instead
+#else
 
 
 namespace cm {
@@ -102,3 +104,4 @@ Optional<Result<T>> binary(T const& value, ArrayRef<T> const& container, F cmp =
 }  // namespace Search
 
 }  // namespace cm
+#endif

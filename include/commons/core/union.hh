@@ -17,7 +17,7 @@
     The Union type uses a strong, medium, and weak matching rule to determine which type to initialize the union with,
     based on the type of the value passed to the constructor.
 
-    The functionality is similarto that of Rust Enum.
+    The functionality is similar to that of Rust Enum.
     It follows the exact same memory layout to the Rust Enums-
     Essentially "struct { u8 tag; union { .... } u; };"
     Except while Rust uses a 16-bit integer as a tag, this can use a byte as the tag if there are less than 255 types
@@ -25,7 +25,9 @@
 */
 
 #pragma once
-#ifdef __inline_core_header__
+#ifndef __inline_core_header__
+#warning Do not include this file directly; include "core.hh" instead
+#else
 
 namespace cm {
 

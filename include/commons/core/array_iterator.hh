@@ -11,8 +11,9 @@
    or implied. See the License for the specific language governing permissions and limitations under
    the License.
 */
-
-#ifdef __inline_core_header__
+#ifndef __inline_core_header__
+#warning Do not include this file directly; include "core.hh" instead
+#else
 
 namespace cm {
 

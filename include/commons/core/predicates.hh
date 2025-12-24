@@ -17,7 +17,9 @@
 */
 
 #pragma once
-#include "../core.hh"
+#ifndef __inline_core_header__
+#warning Do not include this file directly; include "core.hh" instead
+#else
 
 
 namespace cm {
@@ -120,3 +122,4 @@ template<auto Val>
 constexpr inline Predicate::EndsWith<Val> EndsWith;
 
 }  // namespace cm
+#endif

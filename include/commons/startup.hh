@@ -18,7 +18,17 @@
 
 #pragma once
 
-#include "system.hh"  // IWYU pragma: keep
+// clang-format off
+#ifndef HEADER
+#define __module_path_str_helper(x) #x
+#define __module_path_str(x) __module_path_str_helper(x)
+#define __base_path0 commons
+#define HEADER(file) __module_path_str(__base_path0/file)
+#endif
+
+#include HEADER(system.hh)  // IWYU pragma: keep
+
+// clang-format on
 
 #if __has_feature(address_sanitizer)
 #include <sanitizer/asan_interface.h>
@@ -28,6 +38,10 @@
 #endif
 #if __linux__
 #include <signal.h>  // IWYU pragma: keep
+
+extern "C" void* malloc(size_t);
+extern "C" void* aligned_alloc(size_t, size_t);
+extern "C" void free(void*);
 
 
 inline u32 cm::FastPRNG::_state;
@@ -220,8 +234,6 @@ inline void signalHandlers()
 #endif
 
 }  // namespace cm
-
-#include <stdlib.h>
 
 
 constexpr std::align_val_t DEFAULT_ALIGNMENT = std::align_val_t(8);

@@ -13,7 +13,5 @@
 */
 
 #pragma once
-#include "array.hh"
-
 
 namespace cm {}  // namespace cm

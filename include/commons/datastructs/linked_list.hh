@@ -14,8 +14,10 @@ specific language governing permissions and limitations under the License.
 */
 
 #pragma once
-#include "commons/datastructs/collection.hh"  // IWYU pragma: keep
-#include "../core.hh"
+#ifndef __inline_core_header__
+#warning Do not include this file directly; include "datastructs.hh" instead
+#else
+
 
 namespace cm {
 
@@ -236,3 +238,4 @@ inline auto DLList::Container::Iterator::_get() -> void*
 }
 
 }  // namespace cm::impl
+#endif

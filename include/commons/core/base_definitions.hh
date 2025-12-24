@@ -16,6 +16,9 @@
 
 #pragma once
 
+#ifndef __inline_core_header__
+#warning Do not include this file directly; include "core.hh" instead
+#else
 
 #ifdef _MSC_VER
 #include <intrin.h>
@@ -401,3 +404,4 @@ struct IEquatable
     constexpr inline bool operator==(auto const& x) const { return static_cast<Derived const*>(this)->equals(x); }
     constexpr inline bool operator!=(auto const& x) const { return !static_cast<Derived const*>(this)->equals(x); }
 };
+#endif

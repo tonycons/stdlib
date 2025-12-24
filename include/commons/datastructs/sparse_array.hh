@@ -13,7 +13,9 @@
 */
 
 #pragma once
-#include "../core.hh"
+#ifndef __inline_core_header__
+#warning Do not include this file directly; include "datastructs.hh" instead
+#else
 
 namespace cm {
 
@@ -174,3 +176,4 @@ public:
 
 }  // namespace cm
 UNSAFE_END
+#endif

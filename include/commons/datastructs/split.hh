@@ -1,6 +1,7 @@
 #pragma once
-#include "array.hh"
-
+#ifndef __inline_core_header__
+#warning Do not include this file directly; include "datastructs.hh" instead
+#else
 
 namespace cm {
 
@@ -55,8 +56,7 @@ struct CharSplitView
             it++;
         }
 
-        while (it != _source.end()) {
-        }
+        while (it != _source.end()) {}
     }
 
 private:
@@ -72,3 +72,4 @@ CharSplitView<T> split(Array<T> const& array, char c)
 }
 
 }  // namespace cm
+#endif
