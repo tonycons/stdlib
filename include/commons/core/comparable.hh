@@ -109,7 +109,7 @@ constexpr int Compare(auto const& a, auto const& b)
 
 ///
 /// Compare() when given pointers would compare the memory addresses themselves.
-/// ComparePointed dereferences the two pointer arguments and then compares them, otherwise, it behaves like Compare.
+/// ComparePointed instead dereferences two pointer arguments then compares them. otherwise it acts like Compare.
 /// @param a The first object
 /// @param b The second object
 ///

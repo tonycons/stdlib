@@ -189,6 +189,120 @@ public:
     }
 
 
+    /*
+        convert a float to fractional and integral components like the C standard library function frexp.
+        This is a specialization that assumes *value* is not inf, nan, or 0.
+
+        The function produces efficient, completely branchless assembly code under clang 21:
+
+        mov     rax, rdi
+        vmovd   ecx, xmm0
+        mov     edx, ecx
+        shr     edx, 23
+        and     edx, 252
+        add     edx, -126
+        and     ecx, -2139095041
+        or      ecx, 1056964608
+        mov     dword ptr [rdi], edx
+        mov     dword ptr [rdi + 4], ecx
+        ret
+    */
+    constexpr static Tuple<float, int> frexpFiniteNonzero(float value)
+    {
+        u32 const bits = __builtin_bit_cast(u32, value);
+        int const expon = ((bits & 0x7e000000) >> 23) - 126;
+        u32 const final_bits = (bits & 0x807fffff) | 0x3f000000;
+        return {__builtin_bit_cast(float, final_bits), expon};
+    }
+
+    /**
+     Like frexpFiniteNonzero, but just returns the fraction.
+    */
+    constexpr static float fractionFiniteNonzero(float value)
+    {
+        u32 const bits = __builtin_bit_cast(u32, value);
+        u32 const final_bits = (bits & 0x807fffff) | 0x3f000000;
+        return __builtin_bit_cast(float, final_bits);
+    }
+
+    /*
+        Convert a float to fractional and integral components like the C standard library function frexp.
+        The function is equally correct, but more efficient than the C standard library implementation.
+        (It assumes, of course, the standard IEEE-754 float32 representation).
+        The function produces efficient, completely branchless assembly code under clang 21:
+
+        vmovd   eax, xmm0
+        lea     ecx, [rax - 1]
+        mov     edx, eax
+        shr     edx, 23
+        and     edx, 252
+        add     edx, -126
+        mov     esi, eax
+        and     esi, -2139095041
+        or      esi, 1056964608
+        xor     r8d, r8d
+        cmp     ecx, 2139095039
+        cmovb   r8d, edx
+        cmovae  esi, eax
+        mov     rax, rdi
+        mov     dword ptr [rdi], r8d
+        mov     dword ptr [rdi + 4], esi
+        ret
+    */
+    constexpr static Tuple<float, int> frexp(float value)
+    {
+        // this part is the same logic as frexp_finite_nonzero
+        u32 const bits = __builtin_bit_cast(u32, value);
+        bool isNotFiniteOrIsZero = (bits >= 0x7f800000u || bits == 0);
+        // make exponent 0 if value is inf,nan,or 0.
+        int const expon = (((bits & 0x7e000000) >> 23) - 126) * !isNotFiniteOrIsZero;
+        u32 const finalBits = (bits & 0x807fffff) | 0x3f000000;
+        // the reasoning behind this is if value is NaN, inf, or 0, the returned "fraction" is essentially the same
+        // value. otherwise, it should be the fraction we computed earlier. so we want to select (without branching)
+        // either the original value or the fraction. We do this by making a 64-bit integer where the upper 32 bits
+        // contain the original float, the lower 32 bits contain the fraction float then we use clever bitmasking to
+        // select either the lower or upper 32 bits depending on whether value is nan, inf, or 0.
+        u64 const choice = (u64(bits) << 32) | u64(finalBits);
+        // then use bitmasking to select either lower or upper 32 bits. note if isNotFiniteOrIsZero == 0, the shifts do
+        // nothing and just get the lower 32 bits shift is either 0 or 32.
+        u8 const shift = u8(u8(isNotFiniteOrIsZero) << 5);
+        u32 const finalFinalBits = u32((choice & (u64(0xffffffff) << shift)) >> shift);
+
+        float const result = __builtin_bit_cast(float, finalFinalBits);
+        return {result, expon};
+    }
+
+    ///
+    /// Calculates the base 2 logarithm, accurate to at least 36 bits.
+    /// From https://github.com/emjay2k/Approximations/blob/master/logapprox.h#L82
+    ///
+    [[gnu::flatten]]
+    constexpr static float log2(float value)
+    {
+        constexpr float a = 0.59329970349044314f, b = 2.3979646338966889f, c = -0.96358966800238843f,
+                        d = -1.8439274267589987f, e = -0.18374724264449727f, f = 0.1068562844523792f,
+                        g = 1.2392957064266512f, h = 2.0062979261642901f, i = 0.63680961689938775f,
+                        j = 0.028211791264274255f;
+
+        u32 mask = (__builtin_bit_cast(u32, value) & 0x7fffffffu);
+        if (mask >= 0x7f800000u || value <= 0.0f) [[unlikely]] {
+            if (value < 0.0f) {
+                return -QNAN;
+            } else if (mask == 0) {
+                return NEG_INF;
+            } else {
+                return value;
+            }
+        }
+
+        auto [dM, iExp] = frexpFiniteNonzero(value);
+        auto dM2 = dM * dM;
+        auto dM3 = dM * dM2;
+        auto dM4 = dM2 * dM2;
+        auto x = 1.0f / (((f * dM4 + h * dM2) + (g * dM3 + i * dM)) + j);
+        return float(iExp) + x * (((a * dM4 + c * dM2) + (b * dM3 + d * dM)) + e);
+    }
+
 private:
     static float _maxIntrin(float x, float y);
     static float _minIntrin(float x, float y);

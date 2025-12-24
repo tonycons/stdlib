@@ -13,7 +13,6 @@
 */
 #pragma once
 #ifdef __inline_core_header__
-#include <string.h>
 
 
 namespace std {
@@ -27,7 +26,7 @@ public:
     typedef E value_type;
     typedef E const& reference;
     typedef E const& const_reference;
-    typedef __SIZE_TYPE__ size_type;
+    typedef __SIZE_TYPE__ usizeype;
     typedef E const* iterator;
     typedef E const* const_iterator;
 
@@ -86,37 +85,84 @@ namespace cm {
 /// Using C++ references plainly prevents some things,
 /// like changing what the reference points to without calling the copy constructor.
 ///
+/// I want my collections to be able to store references, unlike std. Why?
+/// Why not? There are many times you might want to store a reference to something. Maybe I don't need to use a
+/// "std::shared_ptr" because the references are to static data. There's a number of reasons why I shouldn't have to
+/// result to a pointer in that case.
+///
+///  SO BASICALLY ...
+///
+///  In my library, when you have a collection of references (Queue<T&>, for example), you get something in-between a
+///  collection of values and a collection of pointers.
+///
+///  When you INSERT a value into the collection (through initialization, or methods like push/insert/etc)-- it
+///  stores a "pointer" to that value in the collection.
+///
+///  When you REMOVE a value from the collection, it removes the pointer to that value. It does not destroy the value
+///  itself.
+///
 template<typename T>
-class RefWrapper {
-public:
-    FORCEINLINE RefWrapper(T& x)
-        : ptr(&x)
-    {}
+struct RefWrapper
+{
+    // clang-format off
+    FORCEINLINE constexpr RefWrapper(T& x) : ptr(&x) {}
+    FORCEINLINE constexpr operator T&() { return *ptr; }
+    FORCEINLINE constexpr operator T const&() const { return *ptr; }
+    FORCEINLINE constexpr T* operator->() { return ptr; }
+    FORCEINLINE constexpr T const* operator->() const { return ptr; }
+    FORCEINLINE constexpr RefWrapper& operator=(T& ref) { ptr = &ref; return *this; }
 
-    FORCEINLINE operator T&() { return *ptr; }
-    FORCEINLINE operator T const&() const { return *ptr; }
-    FORCEINLINE T* operator->() { return ptr; }
-    FORCEINLINE T const* operator->() const { return ptr; }
 
+
+    FORCEINLINE constexpr T operator+(auto& val) const requires (IsAddable<T, decltype(val)>) { return *ptr + val; }
+    FORCEINLINE constexpr T operator-(auto& val) const requires (IsSubtractable<T, decltype(val)>) { return *ptr - val; }
+    FORCEINLINE constexpr T operator*(auto& val) const requires (IsMultipliable<T, decltype(val)>) { return *ptr * val; }
+    FORCEINLINE constexpr T operator/(auto& val) const requires (IsDivideable<T, decltype(val)>) { return *ptr / val; }
+    FORCEINLINE constexpr T operator%(auto& val) const requires (IsMODAble<T, decltype(val)>) { return *ptr % val; }
+    FORCEINLINE constexpr T operator&(auto& val) const requires (IsANDAble<T, decltype(val)>) { return *ptr & val; }
+    FORCEINLINE constexpr T operator|(auto& val) const requires (IsORAble<T, decltype(val)>) { return *ptr | val; }
+    FORCEINLINE constexpr T operator^(auto& val) const requires (IsXORAble<T, decltype(val)>) { return *ptr ^ val; }
+
+    FORCEINLINE constexpr auto& operator++() requires (!IsConst<T> && IsPrefixIncrementable<T>) { ++(*ptr); return *this; }
+    FORCEINLINE constexpr T operator++(int) requires (!IsConst<T> && IsPostfixIncrementable<T>) { T tmp = *ptr; ++(*ptr); return move(tmp); }
+    FORCEINLINE constexpr auto& operator--() requires (!IsConst<T> && IsPrefixDecrementable<T>) { --(*ptr); return *this; }
+    FORCEINLINE constexpr T operator--(int) requires (!IsConst<T> && IsPostfixDecrementable<T>) { T tmp = *ptr; --(*ptr); return move(tmp); }
+   
+    FORCEINLINE constexpr auto& operator+=(auto& val) requires (!IsConst<T> && IsAddable<T, decltype(val)>) { *ptr += val; return *this; }
+    FORCEINLINE constexpr auto& operator-=(auto& val) requires (!IsConst<T> && IsSubtractable<T, decltype(val)>) { *ptr - val; return *this; }
+    FORCEINLINE constexpr auto& operator*=(auto& val) requires (!IsConst<T> && IsMultipliable<T, decltype(val)>) { *ptr * val; return *this; }
+    FORCEINLINE constexpr auto& operator/=(auto& val) requires (!IsConst<T> && IsDivideable<T, decltype(val)>) { *ptr /= val; return *this; }
+    FORCEINLINE constexpr auto& operator%=(auto& val) requires (!IsConst<T> && IsMODAble<T, decltype(val)>) { *ptr %= val; return *this; }
+    FORCEINLINE constexpr auto& operator&=(auto& val) requires (!IsConst<T> && IsANDAble<T, decltype(val)>) { *ptr &= val; return *this; }
+    FORCEINLINE constexpr auto& operator|=(auto& val) requires (!IsConst<T> && IsORAble<T, decltype(val)>) { *ptr |= val; return *this; }
+    FORCEINLINE constexpr auto& operator^=(auto& val) requires (!IsConst<T> && IsXORAble<T, decltype(val)>) { *ptr ^= val; return *this; }
+
+
+    FORCEINLINE constexpr static void outputString(RefWrapper const& self, auto const& out) {
+        OutputString(*self.ptr, out);
+    }
 private:
     T* ptr;
 };
 
+
+// clang-format off
 template<typename T>
-class ConstRefWrapper {
-public:
-    FORCEINLINE ConstRefWrapper(T const& x)
-        : ptr(&x)
-    {}
+struct TWrapIfReference { using Type = T; };
+template<typename T>
+struct TWrapIfReference<T&> { using Type = RefWrapper<T>; };
+template<typename T>
+struct TWrapIfReference<T volatile&> { using Type = RefWrapper<T volatile>; };
+template<typename T>
+struct TWrapIfReference<T const&> { using Type = RefWrapper<T const>; };
+template<typename T>
+struct TWrapIfReference<T const volatile&> { using Type = RefWrapper<T const volatile>; };
 
-    FORCEINLINE operator T&() { return *ptr; }
-    FORCEINLINE operator T const&() const { return *ptr; }
-    FORCEINLINE T* operator->() { return ptr; }
-    FORCEINLINE T const* operator->() const { return ptr; }
+// clang-format on
 
-private:
-    T const* ptr;
-};
+
+template<typename T>
+using WrapIfReference = SelectType<IsReference<T>, T, typename TWrapIfReference<T>::Type>;
 
 ///
 /// Use Array instead.
@@ -173,7 +219,7 @@ namespace CArrays {
  */
 UNSAFE_BEGIN
 template<typename T>
-constexpr void moveDataToNewRegion(T* dst, T const* src, size_t n)
+constexpr void moveDataToNewRegion(T* dst, T const* src, usize n)
 {
     if consteval {
         for (__SIZE_TYPE__ i = 0; i < n; i++) {
@@ -191,10 +237,10 @@ constexpr void moveDataToNewRegion(T* dst, T const* src, size_t n)
 }
 
 template<typename T>
-constexpr bool equal(T const* a, T const* b, size_t n)
+constexpr bool equal(T const* a, T const* b, usize n)
 {
     if consteval {
-        for (size_t i = 0; i < n; i++) {
+        for (usize i = 0; i < n; i++) {
             if (a[i] != b[i]) {
                 return false;
             }
@@ -203,7 +249,7 @@ constexpr bool equal(T const* a, T const* b, size_t n)
         if constexpr (IsPrimitiveData<T>) {
             return memcmp(a, b, n * sizeof(T)) == 0;
         } else {
-            for (size_t i = 0; i < n; i++) {
+            for (usize i = 0; i < n; i++) {
                 if (a[i] != b[i]) {
                     return false;
                 }
@@ -214,17 +260,17 @@ constexpr bool equal(T const* a, T const* b, size_t n)
 }
 
 template<typename T>
-constexpr void DefaultInitialize(T const* a, size_t n)
+constexpr void DefaultInitialize(T const* a, usize n)
 {
     if consteval {
-        for (size_t i = 0; i < n; i++) {
+        for (usize i = 0; i < n; i++) {
             a[i] = T{};
         }
     } else {
         if constexpr (IsPrimitiveData<T>) {
             memset(a, 0, sizeof(T) * n);
         } else {
-            for (size_t i = 0; i < n; i++) {
+            for (auto i = 0uz; i < n; i++) {
                 a[i] = T{};
             }
         }
@@ -253,7 +299,7 @@ constexpr auto stringLen(T const* str)
     }
 }
 
-constexpr auto For(Range<size_t> const& range, auto* ptr, auto func)
+constexpr auto For(Range<usize> const& range, auto* ptr, auto func)
 {
     for (auto i : range) {
         func(ptr[i]);

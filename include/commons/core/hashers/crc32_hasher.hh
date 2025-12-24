@@ -36,7 +36,7 @@ struct Crc32
     constexpr static auto const& table()
     {
         constexpr static VectorU32x<256> tbl = {
-#include <commons/resources/crc32_castagnoli_table.csv>
+#include "../../resources/crc32_castagnoli_table.csv"
         };
         return tbl;
     }
@@ -55,8 +55,7 @@ struct Crc32
             return tbl[(hash ^ value) & 0xffu] ^ (hash >> 8u);
         }
 #if (__x86_64__ || __aarch64__)
-        else
-        {
+        else {
 #if __x86_64__
             return static_cast<u32>(__builtin_ia32_crc32qi(seed, value));
 
@@ -82,8 +81,7 @@ struct Crc32
             return seed;
         }
 #if (__x86_64__ || __aarch64__)
-        else
-        {
+        else {
 #if __x86_64__
             return static_cast<u32>(__builtin_ia32_crc32hi(seed, value));
 #elif __aarch64__
@@ -110,8 +108,7 @@ struct Crc32
             return seed;
         }
 #if (__x86_64__ || __aarch64__)
-        else
-        {
+        else {
 #if __x86_64__
             return static_cast<u32>(__builtin_ia32_crc32si(seed, value));
 
@@ -143,8 +140,7 @@ struct Crc32
             return seed;
         }
 #if (__x86_64__ || __aarch64__)
-        else
-        {
+        else {
 #if __x86_64__
             return static_cast<u32>(__builtin_ia32_crc32di(seed, value));
 

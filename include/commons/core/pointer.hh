@@ -15,6 +15,12 @@
 #pragma once
 #ifdef __inline_core_header__
 
+
+// #ifdef _WIN32
+// #include "../system/win32lite.hh"
+// #endif
+
+
 inline static bool __ptr_is_rodata(void const* address)  // NOLINT
 {
 #if __linux__
@@ -49,12 +55,6 @@ struct Ptr
     ///
     inline static bool isRomData(void const* address) { return __ptr_is_rodata(address); }
 
-    /**
-     * Returns the access permissions for a range of memory.
-     * @note In the case that some areas of the range have different permissions, it will return the lowest set of
-     * permissions (that is, the level of access that is common to all areas)
-     */
-    static u8 getAccessBits(void* base, usize n_bytes) noexcept;
 
     static u8 leastPermissiveAccess(u8 access0, u8 access1) noexcept { return access0 & access1; }
 
@@ -105,6 +105,66 @@ struct Ptr
         }
         return nullptr;
     });
+
+    /**
+     * Returns the access permissions for a range of memory.
+     * @note In the case that some areas of the range have different permissions, it will return the lowest set of
+     * permissions (that is, the level of access that is common to all areas)
+     */
+    static u8 getAccessBits(void* base, usize n_bytes) noexcept
+    {
+#if __linux__
+        // TODO
+        if (base == nullptr)
+            return 0;
+
+        (void)n_bytes;
+        return Access::READ_WRITE_BITS;
+
+#elif _WIN32
+        auto result = 0u;
+        MEMORY_BASIC_INFORMATION mbi = {};
+
+        if (base == nullptr)
+            return 0;
+
+        if (::VirtualQuery(base, &mbi, sizeof(mbi)) == 0)
+            // VirtualQuery will just fail if the address is above the highest memory address accessible to the process.
+            return 0;
+
+        if (mbi.Protect & (PAGE_GUARD | PAGE_NOACCESS))
+            return 0;
+
+        if (mbi.Protect & (PAGE_READONLY | PAGE_READWRITE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE))
+            result |= Access::READ_BIT;
+
+        if (mbi.Protect & (PAGE_WRITECOPY | PAGE_READWRITE | PAGE_EXECUTE_WRITECOPY | PAGE_EXECUTE_READWRITE))
+            result |= Access::WRITE_BIT;
+
+        if (mbi.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))
+            result |= Access::EXECUTE_BIT;
+
+        // How many bytes 'base' is, ahead of the page it belongs to;
+        usize base_offset = reinterpret_cast<usize>(base) - reinterpret_cast<usize>(mbi.BaseAddress);
+
+        // Determines if VirtualAlloc has checked n_bytes (because it returns if it reaches a page with different
+        // attributes than the previous)
+        usize n_bytes_checked = mbi.RegionSize - base_offset;
+        if (n_bytes_checked < n_bytes) {
+            void* next_base = reinterpret_cast<void*>(reinterpret_cast<usize>(base) + n_bytes_checked);
+            result &= getAccessBits(next_base, n_bytes - n_bytes_checked);
+        }
+
+        return result;
+#else
+#warning "Unimplemented"
+        if (base == nullptr)
+            return 0;
+
+        (void)n_bytes;
+        return Access::READ_WRITE_BITS;
+#endif
+    }
 };
 
 }  // namespace cm

@@ -192,25 +192,34 @@ static_assert(sizeof(Vector<int, 4>) == 16, "");
 /// Returns the largest value in a variable-number of arguments
 /// All arguments are coerced to be the same type as the first argument.
 ///
-class {
-    FORCEINLINE constexpr auto _h(auto const& a, auto const& b) const { return a > b ? a : b; }
+// Base case 1: single argument (simply return a reference to it)
+constexpr decltype(auto) max(auto const& a) { return a; }
 
-public:
-    FORCEINLINE constexpr auto operator()(auto const& a) const { return a; }
-    FORCEINLINE constexpr auto operator()(auto const& a, auto const&... args) const { return _h(a, (*this)(args...)); }
-} inline constexpr max;
+// Base case 2: two arguments
+constexpr decltype(auto) max(auto const& a, auto const& b) { return a > b ? a : b; }
+
+// Recursive case: three or more arguments
+constexpr decltype(auto) max(auto const& a, auto const& b, auto const&... args) { return max(a, max(b, args...)); }
 
 ///
-/// Returns the smallest value in a variable-number of arguments
+/// Returns a reference to the smallest value in a variable-number of arguments
 /// All arguments are coerced to be the same type as the first argument.
 ///
-class {
-    FORCEINLINE constexpr auto _h(auto const& a, auto const& b) const { return a < b ? a : b; }
 
-public:
-    FORCEINLINE constexpr auto operator()(auto const& a) const { return a; }
-    FORCEINLINE constexpr auto operator()(auto const& a, auto const&... args) const { return _h(a, (*this)(args...)); }
-} inline constexpr min;
+// Base case 1: single argument (simply return a reference to it)
+constexpr decltype(auto) min(auto const& a) { return a; }
+
+// Base case 2: two arguments
+constexpr decltype(auto) min(auto const& a, auto const& b) { return a < b ? a : b; }
+
+// Recursive case: three or more arguments
+constexpr decltype(auto) min(auto const& a, auto const& b, auto const&... args)
+{
+    // The inner min(b, args...) call now correctly forwards its reference type.
+    // The outer call then returns a reference to either 'a' or the result
+    // of the inner call.
+    return min(a, min(b, args...));
+}
 
 
 static_assert(max(-1, 2, 3, -11, 5) == 5);

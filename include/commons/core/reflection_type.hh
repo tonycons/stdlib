@@ -16,100 +16,6 @@
 #ifdef __inline_core_header__
 
 
-#if !defined(__clang__) && defined(_MSC_VER)
-using __UINT8_TYPE__ = unsigned __int8;
-using __INT8_TYPE__ = signed char;  // because some dumb *** defined __int8 as char
-using __UINT16_TYPE__ = unsigned __int16;
-using __INT16_TYPE__ = __int16;
-using __UINT32_TYPE__ = unsigned __int32;
-using __INT32_TYPE__ = __int32;
-using __UINT64_TYPE__ = unsigned __int64;
-using __INT64_TYPE__ = __int64;
-using __UINTMAX_TYPE__ = unsigned long long;
-using __INTMAX_TYPE__ = long long;
-#if _M_X64
-using __SIZE_TYPE__ = unsigned __int64;
-using __INTPTR_TYPE__ = __int64;
-#else
-using __SIZE_TYPE__ = unsigned __int32;
-using __INTPTR_TYPE__ = __int32;
-#endif
-#endif
-
-/// A "zero-bit" integer just for giggles. Good luck using it!
-using u0 = void;
-
-using u1 = unsigned _BitInt(1);
-
-// Note: An "i1" would be useless because it would literally be nothing but a sign bit:
-// It's either positive or negative nothing. Clang won't even let you use signed _BitInt(1).
-
-/// {0, 1, 2, 3}
-using u2 = unsigned _BitInt(2);
-/// {0, 1, -2, -1}
-using i2 = signed _BitInt(2);
-
-using u3 = unsigned _BitInt(3);
-
-using i3 = signed _BitInt(3);
-
-using u4 = unsigned _BitInt(4);
-
-using i4 = signed _BitInt(4);
-
-using u8 = __UINT8_TYPE__;
-
-using i8 = __INT8_TYPE__;
-
-using u16 = __UINT16_TYPE__;
-
-using i16 = __INT16_TYPE__;
-
-using u24 = unsigned _BitInt(24);
-
-using i24 = signed _BitInt(24);
-
-using u32 = __UINT32_TYPE__;
-
-using i32 = __INT32_TYPE__;
-
-using u48 = unsigned _BitInt(48);
-
-using i48 = signed _BitInt(48);
-
-using u64 = __UINT64_TYPE__;
-
-using i64 = __INT64_TYPE__;
-
-#if defined(__aarch64__) || defined(__x86_64__)
-using u128 = __uint128_t;
-#else
-using u128 = unsigned _BitInt(128);
-#endif
-
-#if defined(__aarch64__) || defined(__x86_64__)
-using i128 = __int128;
-#else
-using i128 = _BitInt(128);
-#endif
-
-using u256 = unsigned _BitInt(256);
-
-using i256 = _BitInt(256);
-
-using usize = __SIZE_TYPE__;
-
-using isize = __INTPTR_TYPE__;
-
-static_assert(sizeof(u8) == 1 && sizeof(i8) == 1);
-static_assert(sizeof(u16) == 2 && sizeof(i16) == 2);
-static_assert(sizeof(u32) == 4 && sizeof(i32) == 4);
-static_assert(sizeof(u64) == 8 && sizeof(i64) == 8);
-static_assert(sizeof(u128) == 16 && sizeof(i128) == 16);
-static_assert(sizeof(u256) == 32 && sizeof(i256) == 32);
-static_assert(sizeof(usize) == sizeof(void*) && sizeof(isize) == sizeof(void*));
-
-
 struct Nothing
 {};
 
@@ -194,6 +100,9 @@ using VolatileRemoved = typename TVolatileRemoved<T>::Type;
 
 template<typename T>
 using CVRemoved = typename TConstRemoved<typename TVolatileRemoved<T>::Type>::Type;
+
+template<typename T>
+using CRefRemoved = typename TRefRemoved<typename TConstRemoved<T>::Type>::Type;
 
 template<typename T>
 using CVRefRemoved = typename TRefRemoved<typename TConstRemoved<typename TVolatileRemoved<T>::Type>::Type>::Type;
@@ -292,6 +201,25 @@ static_assert(!IsPointer<int>);
 
 template<typename T>
 concept IsReference = bool{!IsSame<T, RefRemoved<T>>};
+
+template<class T>
+constexpr inline T&& Forward(RefRemoved<T>& t) noexcept
+{
+    return static_cast<T&&>(t);
+}
+
+template<class T>
+constexpr inline T&& Forward(RefRemoved<T>&& t) noexcept
+{
+    static_assert(!IsReference<T>, "Cannot Forward an rvalue as an lvalue");
+    return static_cast<T&&>(t);
+}
+
+template<typename T>
+constexpr RefRemoved<T>&& move(T&& arg) noexcept
+{
+    return static_cast<RefRemoved<T>&&>(arg);
+}
 
 template<typename T>
 concept IsConstPointer = bool{IsConst<T> && IsPointer<T>};
@@ -418,6 +346,24 @@ concept IsMutable = requires (T a, T b) {
     { a = b };
 };
 
+template<int index, typename A, typename B>
+struct TSelectType;
+
+template<typename A, typename B>
+struct TSelectType<0, A, B>
+{
+    using Type = A;
+};
+
+template<typename A, typename B>
+struct TSelectType<1, A, B>
+{
+    using Type = B;
+};
+
+template<int index, typename A, typename B>
+using SelectType = typename TSelectType<index, A, B>::Type;
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -455,9 +401,23 @@ concept TriviallyDestructible = __is_trivially_destructible(T);
 template<typename... Types>
 concept AllTriviallyDestructible = ((TriviallyDestructible<Types>) || ...);
 
+///
+/// True if a type is trivially relocatable
+/// Basically, true if an instance of a type can have its location in memory changed without needing to call a
+/// destructor or copy constructor. An example of a type that is not trivially relocatable is one that can store a
+/// pointer to one of its own data members, because the object is not safe to move without updating the value of the
+/// pointer.
+///
+template<typename T>
+concept IsTriviallyRelocatable = __builtin_is_cpp_trivially_relocatable(T);
+
 template<typename T>
 concept Destructible = __is_destructible(T);
 
+template<typename T, typename U>
+concept IsImplicitlyAssignable = requires (T& t, U const& u) {
+    { t = u };
+};
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -491,16 +451,31 @@ concept IsCallableAndReturns = requires (F f, Args... args) {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
 template<typename T>
-concept IsIncrementable = requires (T a) {
-    { (++a, a++) };
+concept IsPrefixIncrementable = requires (T a) {
+    { ++a };
 };
 
 template<typename T>
-concept IsDecrementable = requires (T a) {
-    { (a--, --a) };
+concept IsPostfixIncrementable = requires (T a) {
+    { a++ };
 };
+
+template<typename T>
+concept IsIncrementable = IsPrefixIncrementable<T> && IsPostfixIncrementable<T>;
+
+template<typename T>
+concept IsPrefixDecrementable = requires (T a) {
+    { --a };
+};
+
+template<typename T>
+concept IsPostfixDecrementable = requires (T a) {
+    { a-- };
+};
+
+template<typename T>
+concept IsDecrementable = IsPrefixDecrementable<T> && IsPostfixDecrementable<T>;
 
 template<typename T>
 concept IsIncrementableDecrementable = IsIncrementable<T> && IsDecrementable<T>;
@@ -539,20 +514,88 @@ template<typename T1, typename T2>
 concept IsDivideable = requires (T1 t1, T2 t2) {
     { t1 / t2 };
 };
-
+template<typename T1, typename T2>
+concept IsDivisionAssignable = requires (T1 t1, T2 t2) {
+    { t1 /= t2 };
+};
 template<typename T1, typename T2>
 concept IsMultipliable = requires (T1 t1, T2 t2) {
     { t1 * t2 };
 };
-
+template<typename T1, typename T2>
+concept IsMultiplicationAssignable = requires (T1 t1, T2 t2) {
+    { t1 *= t2 };
+};
 template<typename T1, typename T2>
 concept IsAddable = requires (T1 t1, T2 t2) {
     { t1 + t2 };
 };
-
+template<typename T1, typename T2>
+concept IsAdditionAssignable = requires (T1 t1, T2 t2) {
+    { t1 += t2 };
+};
 template<typename T1, typename T2>
 concept IsSubtractable = requires (T1 t1, T2 t2) {
     { t1 - t2 };
+};
+template<typename T1, typename T2>
+concept IsSubtractionAssignable = requires (T1 t1, T2 t2) {
+    { t1 -= t2 };
+};
+template<typename T1, typename T2>
+concept IsMODAble = requires (T1 t1, T2 t2) {
+    { t1 % t2 };
+};
+template<typename T1, typename T2>
+concept IsMODAssignable = requires (T1 t1, T2 t2) {
+    { t1 %= t2 };
+};
+
+// bitwise stuff
+
+template<typename T1, typename T2>
+concept IsANDAble = requires (T1 t1, T2 t2) {
+    { t1 & t2 };
+};
+template<typename T1, typename T2>
+concept IsANDAssignable = requires (T1 t1, T2 t2) {
+    { t1 &= t2 };
+};
+template<typename T1, typename T2>
+concept IsORAble = requires (T1 t1, T2 t2) {
+    { t1 | t2 };
+};
+template<typename T1, typename T2>
+concept IsORAssignable = requires (T1 t1, T2 t2) {
+    { t1 |= t2 };
+};
+template<typename T1>
+concept IsBitwiseNOTAble = requires (T1 t1) {
+    { ~t1 };
+};
+template<typename T1, typename T2>
+concept IsXORAble = requires (T1 t1, T2 t2) {
+    { t1 ^ t2 };
+};
+template<typename T1, typename T2>
+concept IsXORAssignable = requires (T1 t1, T2 t2) {
+    { t1 ^= t2 };
+};
+template<typename T1, typename T2>
+concept IsRightShiftable = requires (T1 t1, T2 t2) {
+    { t1 >> t2 };
+};
+template<typename T1, typename T2>
+concept IsRightShiftAssignable = requires (T1 t1, T2 t2) {
+    { t1 >>= t2 };
+};
+template<typename T1, typename T2>
+concept IsLeftShiftable = requires (T1 t1, T2 t2) {
+    { t1 << t2 };
+};
+template<typename T1, typename T2>
+concept IsLeftShiftAssignable = requires (T1 t1, T2 t2) {
+    { t1 <<= t2 };
 };
 
 template<typename T, typename IndexType>
@@ -599,25 +642,6 @@ class TConstIf<false, T> {
 template<bool B, class T>
 using ConstIf = typename TConstIf<B, T>::Type;
 
-
-template<class T>
-constexpr inline T&& Forward(RefRemoved<T>& t) noexcept
-{
-    return static_cast<T&&>(t);
-}
-
-template<class T>
-constexpr inline T&& Forward(RefRemoved<T>&& t) noexcept
-{
-    static_assert(!IsReference<T>, "Cannot Forward an rvalue as an lvalue");
-    return static_cast<T&&>(t);
-}
-
-template<typename T>
-constexpr RefRemoved<T>&& move(T&& arg) noexcept
-{
-    return static_cast<RefRemoved<T>&&>(arg);
-}
 
 namespace detail {
 template<typename T>
@@ -768,6 +792,12 @@ concept IsIterable = requires (T a) {
     { a.begin() } -> IsIterator;
     { a.end() } -> IsIterator;
 };
+
+
+// allow C++ structured bindings to be created from tuples
+
+// i know we're supposed to "specialize" these classes, but that would require including the entire C++ standard library
+// type_traits header... any dependency on the C++ standard library is not allowed.
 
 
 // namespace {

@@ -21,7 +21,7 @@ namespace cm {
 class String;
 
 ///
-/// This is something akin to the Class object in Java-- a constant record of properties about a type.
+/// This is something like the Class object in Java-- a constant record of properties about a type.
 /// Generated at compile time, stored at runtime.
 ///
 typedef const class Class {
@@ -33,11 +33,11 @@ public:
     CFunction<void(void*)> destructor;
     CFunction<void(void*)> defaultConstructor;
     CFunction<void(void*, void const*)> copyConstructor;
-    uint32_t sizeBytes;
-    uint32_t isPrimitive : 1;
-    uint32_t isSigned : 1;
-    uint32_t isFloatingPoint : 1;
-    uint32_t isInteger : 1;
+    u32 sizeBytes;
+    u32 isPrimitive : 1;
+    u32 isSigned : 1;
+    u32 isFloatingPoint : 1;
+    u32 isInteger : 1;
 
     [[no_unique_address]] struct IDProperty : ComputedProperty<Class>
     {
@@ -73,8 +73,6 @@ public:
         result.isSigned = !IsClass<T> && !IsUnsignedInteger<T>;
         result.isFloatingPoint = IsFloatingPoint<T>;
         result.isInteger = IsInteger<T>;
-
-        // .
 
         if constexpr (!TriviallyDestructible<T>) {
             result.destructor = [](void* ptr) -> void {

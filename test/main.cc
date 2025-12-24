@@ -1,7 +1,6 @@
-#include <commons/core.hh>
-#include <commons/system.hh>
-#include <commons/datastructs.hh>
-#include <commons/algorithm/predicates.hh>
+#include <commons/startup.hh>
+// #define TEST_THAT_WARNINGS_ARE_SHOWN 0
+#include "testoptional.cc"
 
 
 using namespace cm;
@@ -30,10 +29,10 @@ int levenshteinDistance(StringRef s1, StringRef s2)
 
 int main()
 {
-    // Example 1
-    auto ld = levenshteinDistance;
     stdout->println(
-        "`", ArrayRef{ld("Hello", "hoLle"), ld("Hello", "heLlo"), ld("Hello", "Gello"), ld("kitten", "sitting")});
+        "` ` ` `",  //
+        levenshteinDistance("Hello", "hoLle"), levenshteinDistance("Hello", "heLlo"),
+        levenshteinDistance("Hello", "Gello"), levenshteinDistance("kitten", "sitting"));
 
     // simple file access
 
@@ -55,9 +54,19 @@ int main()
     stdout->println("should be 0: `", k.compareTimesafe(k1));
     stdout->println("should be -1: `", k.compareTimesafe(k2));
     stdout->println("should be -1: `", k.compareTimesafe(k3));
-    stdout->println(k > k3);
+    stdout->println(k.mean());
     stdout->println(true);
 
+
+    testOptional();
+
+
+    FixedQueue<int, 15> queue = {1, 2, 3, 4, 5};
+    // queue.outputString(queue, [](char) {});
+
+    k.outputString(k, [](char) {});
+
+    stdout->println(queue);
 
     // for (auto dir : Filter(ArrayRef{"a", "b", "c"}, StartsWith<'a'>)) {
     //     stdout->println(dir);

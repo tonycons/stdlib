@@ -15,7 +15,7 @@ specific language governing permissions and limitations under the License.
 
 #pragma once
 #include "commons/datastructs/collection.hh"  // IWYU pragma: keep
-#include <commons/core.hh>
+#include "../core.hh"
 
 namespace cm {
 
@@ -127,3 +127,112 @@ struct DLList : protected impl::DLList::Container
 
 
 }  // namespace cm
+
+namespace cm::impl {
+
+/*
+ */
+inline DLList::Container::~Container() { clear(); }
+
+/*
+ */
+[[clang::noinline]]
+inline void DLList::Container::clear()
+{
+    if (_objclass.destructor) {  // avoid evaluating the if statement inside the loop repeatedly
+        for (auto n = _head; n != nullptr;) {
+            auto tmp = n->next;
+            UNSAFE(_objclass.destructor(reinterpret_cast<u8*>(n) + sizeof(Node)));
+            delete[] n;
+            n = tmp;
+        }
+    } else {
+        for (auto n = _head; n != nullptr;) {
+            auto tmp = n->next;
+            delete[] n;
+            n = tmp;
+        }
+    }
+    _head = _tail = nullptr;
+    _length = 0;
+}
+
+/*
+ */
+[[clang::noinline]]
+inline void DLList::Container::Iterator::_insert(void const* mem)
+{
+    Assert(mem);
+    Node* newNode;
+
+    UNSAFE_BEGIN;
+    {
+        auto* newNodeBytes = new u8[sizeof(Node) + _list->_objclass.sizeBytes];  // TODO: alignment
+        memcpy(newNodeBytes + sizeof(Node), mem, _list->_objclass.sizeBytes);
+        newNode = reinterpret_cast<Node*>(newNodeBytes);
+    }
+    UNSAFE_END;
+
+    if (_curr == nullptr) {  // iterator is at end
+        newNode->prev = _list->_tail;
+        newNode->next = nullptr;
+
+        if (_list->_head == nullptr && _list->_tail == nullptr) {  // list is empty
+            _list->_head = _list->_tail = newNode;
+        } else {  // list is not empty
+            _list->_tail->next = newNode;
+            _list->_tail = newNode;
+        }
+    } else {
+        newNode->prev = _curr->prev;
+        newNode->next = _curr;
+
+        if (_curr->prev) {
+            _curr->prev->next = newNode;
+        }
+        _curr->prev = newNode;
+        if (_curr == _list->_head) {
+            _list->_head = _curr->prev;
+        }
+    }
+    _list->_length++;
+    _curr = newNode;
+}
+
+[[clang::noinline]]
+inline void DLList::Container::Iterator::_remove()
+{
+    Assert(_curr);
+    Node* tmp;
+
+    if (_curr->prev) {
+        _curr->prev->next = _curr->next;
+    }
+    if (_curr->next) {
+        _curr->next->prev = _curr->prev;
+    }
+    if (_curr == _list->_head) {
+        _list->_head = _curr->next;
+    }
+    if (_curr == _list->_tail) {
+        _list->_tail = _curr->prev;
+    }
+    _list->_length--;
+    tmp = _curr->next;
+    delete[] _curr;
+    _curr = tmp;
+}
+
+inline auto DLList::Container::Iterator::_get() const -> void const*
+{
+    Assert(_curr);
+    return UNSAFE(reinterpret_cast<u8 const*>(_curr) + sizeof(Node));
+}
+
+inline auto DLList::Container::Iterator::_get() -> void*
+{
+    Assert(_curr);
+    return UNSAFE(reinterpret_cast<u8*>(_curr) + sizeof(Node));
+}
+
+}  // namespace cm::impl

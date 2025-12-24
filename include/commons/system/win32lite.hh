@@ -24,7 +24,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define nominmax
 #define NOMINMAX
-#include <commons/core.hh>
+#include "../core.hh"
 
 
 extern "C" {

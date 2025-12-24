@@ -21,6 +21,7 @@
 #define __inline_core_header__
 #include "datastructs/array.hh"         // IWYU pragma: keep
 #include "datastructs/array_list.hh"    // IWYU pragma: keep
+#include "datastructs/queue.hh"         // IWYU pragma: keep
 #include "datastructs/string.hh"        // IWYU pragma: keep
 #include "datastructs/linked_list.hh"   // IWYU pragma: keep
 #include "datastructs/sparse_array.hh"  // IWYU pragma: keep

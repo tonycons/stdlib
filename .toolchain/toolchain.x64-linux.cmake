@@ -86,11 +86,6 @@ add_link_options(
 #link_directories(${CMAKE_CURRENT_SOURCE_DIR}/Dependencies/SFML/lib)
 
 set(WS ${CMAKE_CURRENT_LIST_DIR}/../src)
-set(PLATFORM_SRC 
-    ${WS}/system/linux/linux_runtime.cc
-    ${WS}/system/linux/linux_streams.cc 
-    ${WS}/system/linux/linux_shell.cc 
-)
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE NEVER)

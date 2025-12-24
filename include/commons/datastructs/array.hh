@@ -13,8 +13,8 @@
 */
 
 #pragma once
-#include <commons/core.hh>
-#include <commons/datastructs/collection.hh>
+#include "../core.hh"
+#include "collection.hh"
 
 
 namespace cm {
@@ -205,13 +205,28 @@ public:
 
     ///
     /// Bounds-checking index operator.
+    /// Returns a reference to an array element that should not outlive ``*this``.
     ///
-    constexpr auto& operator[](this auto&& self, Index i) UNSAFE({ return self._data[i.compute(self)]; });
+    constexpr T const& operator[](Index const& i) const [[clang::lifetimebound]]
+    {
+        UNSAFE_BEGIN;
+        return this->_data[i.compute(*this)];
+        UNSAFE_END;
+    }
 
     ///
-    /// Returns a pointer to the underlying array's buffer
+    /// Bounds-checking index operator.
+    /// Returns a reference to an array element that should not outlive ``*this``.
     ///
-    constexpr inline auto data(this auto&& self) { return &self._data[0]; }
+    constexpr T& operator[](Index const& i) [[clang::lifetimebound]]
+    {
+        return const_cast<T&>(static_cast<Array const*>(this)->operator[](i));
+    }
+
+    ///
+    /// Returns a pointer to the underlying array's buffer. The returned pointer should not outlive ``*this``.
+    ///
+    constexpr inline auto data([[clang::lifetimebound]] this auto&& self) noexcept { return &self._data[0]; }
 
     ///
     /// Returns the number of elements in the array.
@@ -272,7 +287,7 @@ public:
                     self[index] = actualSetter(index);
                 }
             } else {
-                self[index] = actualSetter(index);
+                self[indices] = actualSetter(indices);
             }
             return self;
         } else {
@@ -334,13 +349,20 @@ public:
     ///
     /// Index operator that does not perform bounds checking.
     ///
-    constexpr auto& operator()(Index i) noexcept UNSAFE({ return Base::_data[i.computeUnchecked(*this)]; });
-    constexpr auto const& operator()(Index i) const noexcept { UNSAFE(return Base::_data[i.computeUnchecked(*this)];) }
+    constexpr auto& operator()(Index i) noexcept [[clang::lifetimebound]]
+    {
+        UNSAFE(return Base::_data[i.computeUnchecked(*this)]);
+    }
+
+    constexpr auto const& operator()(Index i) const noexcept [[clang::lifetimebound]]
+    {
+        UNSAFE(return Base::_data[i.computeUnchecked(*this)];)
+    }
 
     ///
     /// 2D Indexing operator that does not perform bounds checking.
     ///
-    constexpr auto const& operator()(Index row, auto const& col) const
+    constexpr auto const& operator()(Index row, auto const& col) const [[clang::lifetimebound]]
     {
         UNSAFE(return Base::_data[row.computeUnchecked(*this)][col];)
     }

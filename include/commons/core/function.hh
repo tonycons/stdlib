@@ -119,18 +119,6 @@ public:
 ///
 struct Functions
 {
-
-    ///
-    /// Returns a pointer to a function that does nothing but return the value x
-    ///
-    // constexpr static auto identity(auto const& x)
-    // {
-    //     return [&x](...) {
-    //         return x;
-    //     };
-    // }
-
-
     ///
     /// An identity function that returns the Nth value in a variable number of arguments passed to it
     ///

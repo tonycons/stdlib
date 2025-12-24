@@ -14,7 +14,7 @@
 
 #pragma once
 #ifdef __inline_core_header__
-#include <commons/resources/one_char_string_table.hh>
+#include "../resources/OneCharStringTable.hh"
 
 namespace cm {
 
@@ -52,16 +52,33 @@ public:
     /// How is this possible? It references a static, one-byte null terminated C string from a lookup table.
     ///
     constexpr StringRef(char ch)
-        : Base(Data::charToStringLookup(ch), 2)
+        : Base(::cm::Data::oneCharStringTable(ch), 2)
     {}
 
     constexpr bool equals(StringRef const& s) const { return Base::equals(s); }
     constexpr bool equalsTimesafe(StringRef const& s) { return Base::equalsTimesafe(s); }
     constexpr int compare(StringRef const& s) const { return Base::compare(s); }
     constexpr int compareTimesafe(StringRef const& s) { return Base::compareTimesafe(s); }
+
     constexpr usize length() const { return usize(::cm::max(0, isize(Base::length()) - 1)); }
+
     constexpr usize sizeBytes() const { return this->length() * sizeof(char); }
-    constexpr char const* cstr() const { return this->data(); }
+
+    constexpr static void outputString(StringRef const& s, auto const& out)
+    {
+        for (char c : s) {
+            out(c);
+        }
+    }
+
+    ///
+    /// Returns a pointer to the string data. The returned pointer should not outlive ``*this``.
+    ///
+    constexpr char const* cstr() const noexcept { return this->data(); }
+
+    ///
+    /// Compare two strings, ignoring case.
+    ///
 };
 
 

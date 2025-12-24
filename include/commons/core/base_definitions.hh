@@ -21,6 +21,80 @@
 #include <intrin.h>
 #endif
 
+
+#if !defined(__clang__) && defined(_MSC_VER)
+using __UINT8_TYPE__ = unsigned __int8;
+using __INT8_TYPE__ = signed char;  // because some dumb *** defined __int8 as char
+using __UINT16_TYPE__ = unsigned __int16;
+using __INT16_TYPE__ = __int16;
+using __UINT32_TYPE__ = unsigned __int32;
+using __INT32_TYPE__ = __int32;
+using __UINT64_TYPE__ = unsigned __int64;
+using __INT64_TYPE__ = __int64;
+using __UINTMAX_TYPE__ = unsigned long long;
+using __INTMAX_TYPE__ = long long;
+#if _M_X64
+using __SIZE_TYPE__ = unsigned __int64;
+using __INTPTR_TYPE__ = __int64;
+#else
+using __SIZE_TYPE__ = unsigned __int32;
+using __INTPTR_TYPE__ = __int32;
+#endif
+#endif
+
+/// A "zero-bit" integer just for giggles. Good luck using it!
+using u0 = void;
+using u1 = unsigned _BitInt(1);
+
+// Note: An "i1" would be useless because it would literally be nothing but a sign bit:
+// It's either positive or negative nothing. Clang won't even let you use signed _BitInt(1).
+
+/// {0, 1, 2, 3}
+using u2 = unsigned _BitInt(2);
+/// {0, 1, -2, -1}
+using i2 = signed _BitInt(2);
+using u3 = unsigned _BitInt(3);
+using i3 = signed _BitInt(3);
+using u4 = unsigned _BitInt(4);
+using i4 = signed _BitInt(4);
+using u8 = __UINT8_TYPE__;
+using i8 = __INT8_TYPE__;
+using u16 = __UINT16_TYPE__;
+using i16 = __INT16_TYPE__;
+using u24 = unsigned _BitInt(24);
+using i24 = signed _BitInt(24);
+using u32 = __UINT32_TYPE__;
+using i32 = __INT32_TYPE__;
+using u48 = unsigned _BitInt(48);
+using i48 = signed _BitInt(48);
+using u64 = __UINT64_TYPE__;
+using i64 = __INT64_TYPE__;
+
+#if defined(__aarch64__) || defined(__x86_64__)
+using u128 = __uint128_t;
+#else
+using u128 = unsigned _BitInt(128);
+#endif
+
+#if defined(__aarch64__) || defined(__x86_64__)
+using i128 = __int128;
+#else
+using i128 = _BitInt(128);
+#endif
+
+using u256 = unsigned _BitInt(256);
+using i256 = _BitInt(256);
+using usize = __SIZE_TYPE__;
+using isize = __INTPTR_TYPE__;
+
+static_assert(sizeof(u8) == 1 && sizeof(i8) == 1);
+static_assert(sizeof(u16) == 2 && sizeof(i16) == 2);
+static_assert(sizeof(u32) == 4 && sizeof(i32) == 4);
+static_assert(sizeof(u64) == 8 && sizeof(i64) == 8);
+static_assert(sizeof(u128) == 16 && sizeof(i128) == 16);
+static_assert(sizeof(u256) == 32 && sizeof(i256) == 32);
+static_assert(sizeof(usize) == sizeof(void*) && sizeof(isize) == sizeof(void*));
+
 ///
 /// Most compilers have the __has_builtin function to check for the existence of a builtin function
 ///
@@ -222,35 +296,53 @@ enum class align_val_t : std::size_t {
 };
 }
 
-constexpr void* operator new(std::size_t, void* ptr) noexcept { return ptr; }
-constexpr void* operator new[](std::size_t, void* ptr) noexcept { return ptr; }
+[[gnu::alloc_size(1)]]
+constexpr inline void* operator new(std::size_t, void* ptr) noexcept
+{
+    return ptr;
+}
+
+[[gnu::alloc_size(1)]]
+constexpr inline void* operator new[](std::size_t, void* ptr) noexcept
+{
+    return ptr;
+}
 
 /**
  */
+[[gnu::alloc_size(1)]]
 void* operator new(std::size_t size);
 
+[[gnu::alloc_size(1)]]
 void* operator new[](std::size_t size);
 
+[[gnu::alloc_size(1)]]  //
+[[gnu::alloc_align(2)]]
 void* operator new(std::size_t size, std::align_val_t al);
 
+[[gnu::alloc_size(1)]]  //
+[[gnu::alloc_align(2)]]
 void* operator new[](std::size_t size, std::align_val_t al);
 
 /// non-throwing allocation functions
 
+[[gnu::alloc_size(1)]]
 void* operator new(std::size_t size, std::nothrow_t const&) noexcept;
 
+[[gnu::alloc_size(1)]]
 void* operator new[](std::size_t size, std::nothrow_t const&) noexcept;
 
+[[gnu::alloc_size(1)]]  //
+[[gnu::alloc_align(2)]]
 void* operator new(std::size_t size, std::align_val_t al, std::nothrow_t const&) noexcept;
 
+[[gnu::alloc_size(1)]]  //
+[[gnu::alloc_align(2)]]
 void* operator new[](std::size_t size, std::align_val_t al, std::nothrow_t const&) noexcept;
 
 void operator delete(void* ptr) noexcept;
-
 void operator delete[](void* ptr) noexcept;
-
 void operator delete(void* ptr, std::size_t sz) noexcept;
-
 void operator delete[](void* ptr, std::size_t sz) noexcept;
 
 
@@ -265,6 +357,30 @@ struct BytePadding
 {
     __UINT8_TYPE__ pad[Size];
 };
+
+
+namespace cm {
+
+template<typename T>
+concept HasOutputStringMethod = requires (T value) {
+    {
+        T::outputString(value, [](char) {})
+    };
+};
+
+constexpr void __outputString(auto const&, auto const&);
+
+
+template<typename T>
+constexpr void OutputString(T const& value, auto const& out)
+{
+    if constexpr (HasOutputStringMethod<T>) {
+        T::outputString(value, out);
+    } else {
+        __outputString(value, out);
+    }
+}
+}  // namespace cm
 
 
 /*

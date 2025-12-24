@@ -179,4 +179,29 @@ struct GetTupleElement
 
 template<typename TupleT, unsigned N>
 using TupleElement = typename GetTupleElement<TupleT, N>::Type;
+
+
+namespace std {
+
+template<typename>
+struct tuple_size;
+
+template<__SIZE_TYPE__, typename>
+struct tuple_element;
+
+
+template<typename... Args>
+struct tuple_size<::Tuple<Args...>>
+{
+    constexpr static auto value = sizeof...(Args);
+};
+
+template<decltype(0uz) Index, typename... Args>
+struct tuple_element<Index, ::Tuple<Args...>>
+{
+    using type = TupleElement<::Tuple<Args...>, Index> const;
+};
+}  // namespace std
+
+
 #endif

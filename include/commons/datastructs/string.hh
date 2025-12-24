@@ -13,9 +13,9 @@
 */
 
 #pragma once
-#include "array.hh"
 #include "commons/datastructs/array_list.hh"
-#include <commons/core.hh>
+#include "../core.hh"
+#include "../resources/OneCharStringTable.hh"
 
 
 namespace cm {
@@ -37,7 +37,7 @@ struct PrintableT final : Printable
     PrintableT(T const& ref)
         : ptr(&const_cast<T&>(ref))
     {}
-    void output(String& result) const override;
+    constexpr void output(String& result) const override;
 };
 
 template<typename T>
@@ -49,6 +49,7 @@ template<typename T>
 /// @see docs/String.md
 ///
 class String : public LinearIteratorComponent<String, char>,  //
+               public Iterable<String>,
                public IEquatable<String> {
 
     ByteVector _data;
@@ -57,22 +58,32 @@ public:
     constexpr static auto FORMAT_DELIMITER = '`';
     using Index = Union<usize, isize> const&;
 
-    /**
-     * Constructor from a string literal.
-     * @param cstring The values
-     */
+    ///
+    /// Constructor from a string literal.
+    /// @param cstring The values
+    ///
     template<long long N>
     String(char const (&cstring)[N])
-        : String(cstring, max(N - 1, 0))
+        : String(cstring, ::cm::max(N - 1, 0))
     {}
 
-    String();
-    String(char c);
-    String(char const* str)
+    constexpr String()
+        : _data("", 1)
+    {}
+
+    constexpr String(char c)
+        : _data(Data::oneCharStringTable(c), 1)
+    {}
+
+    constexpr String(char const* str)
         : String(StringRef(str))
     {}
-    String(char const* cstring, usize len);
-    String(StringRef const& sv)
+
+    constexpr String(char const* cstring, usize len)
+        : _data(cstring, len + 1)
+    {}
+
+    constexpr String(StringRef const& sv)
         : String(sv.data(), sv.length())
     {}
 
@@ -84,31 +95,52 @@ public:
     NODISCARD operator StringRef() { return StringRef(const_cast<char*>(cstr()), length()); }
     NODISCARD operator StringRef() const { return StringRef(const_cast<char*>(cstr()), length()); }
 
-    NODISCARD usize getActualIndex(Index i) const;
+    NODISCARD inline usize getActualIndex(Index i) const
+    {
+        return i.match(
+            [&](usize k) { return k; },
+            [&](isize k) {  // Possible negative index
+                return k < 0 ? usize(isize(length()) + k) : usize(k);
+            });
+    }
 
-    NODISCARD char& operator[](Index i);
+    NODISCARD char& operator[](Index i)
+    {
+        UNSAFE(u8* r = &_data.data()[getActualIndex(i) * sizeof(char)]);
+        return *reinterpret_cast<char*>(r);
+    }
 
-    NODISCARD char operator[](Index i) const;
+    NODISCARD char operator[](Index i) const
+    {
+        UNSAFE(u8 const* r = &_data.data()[getActualIndex(i) * sizeof(char)]);
+        return *reinterpret_cast<char const*>(r);
+    }
 
-    NODISCARD usize length() const;
+    NODISCARD constexpr usize length() const { return _data.length() - 1; }
 
-    NODISCARD usize sizeBytes() const;
+    NODISCARD constexpr usize sizeBytes() const { return length() * sizeof(char); }
 
-    NODISCARD bool empty() const { return length() == 0; }
+    NODISCARD constexpr bool empty() const { return length() == 0; }
 
-    NODISCARD char const* data() const;
+    NODISCARD constexpr char const* data() const { return reinterpret_cast<char const*>(_data.data()); }
 
-    NODISCARD char const* cstr() const { return this->data(); }
+    NODISCARD constexpr char const* cstr() const { return this->data(); }
 
-    NODISCARD bool equals(StringRef value) const { return StringRef(*this).equals(value); }
+    NODISCARD constexpr bool equals(StringRef value) const { return StringRef(*this).equals(value); }
 
     void ensureNullTermination();
 
-    void erase(Index i, usize count) &;
+    void erase(Index i, usize n) &
+    {
+        usize actualIndex = getActualIndex(i);
+        _data.erase(actualIndex * sizeof(char), n * sizeof(char));
+    }
 
-    void insert(Index, StringRef) &;
-
-    void replace(StringRef substr, StringRef replacement) &;
+    void insert(Index i, StringRef const& s) &
+    {
+        usize actualIndex = getActualIndex(i);
+        _data.insert(actualIndex * sizeof(char), s.data(), s.sizeBytes());
+    }
 
 
     void insertf(Index i, u64 value);
@@ -130,10 +162,27 @@ public:
 
     FORCEINLINE void append(StringRef s) & { return insert(length(), s); }
     FORCEINLINE void push(StringRef s) & { return insert(length(), s); }
-    char pop() &;
+    inline char pop() &
+    {
+        char c = (*this)[-1];
+        erase(-1, 1);
+        return c;
+    }
 
     NODISCARD FORCEINLINE String replace(StringRef s, StringRef r) const { return String(*this).replace(s, r); }
     NODISCARD FORCEINLINE String replace(StringRef s, StringRef r) && { return (replace(s, r), *this); }
+
+    void replace(StringRef substr, StringRef replacement) &
+    {
+        usize baseIndex = 0;
+        Optional<usize> index = None;
+        while ((index = this->find(substr, baseIndex)) != None) {
+            erase(index.value(), substr.length());
+            insert(index.value(), replacement);
+            baseIndex += replacement.length();
+        }
+    }
+
 
     NODISCARD FORCEINLINE String erase(Index i, usize n) const { return String(*this).erase(i, n); }
     NODISCARD FORCEINLINE String erase(Index i, usize n) && { return (erase(i, n), *this); }
@@ -150,44 +199,118 @@ public:
     /// @note If the element is not a simple data type and is removed, its destructor is called.
     /// @param refValue The value to remove.
     ///
-    void removeSuffix(char refValue) &;
+    void removeSuffix(char refValue) &
+    {
+        if (length() != 0 && (*this)[length() - 1] == refValue) {
+            erase(length() - 1, 1);
+        }
+    }
+
+
+    ///
+    /// Returns a reference to a segment of an array from startIndex (inclusive) to endIndex (exclusive)
+    ///
+    constexpr StringRef slice(usize startIndex, usize endIndex) const
+    {
+        UNSAFE_BEGIN;
+        Assert(endIndex <= length());
+        Assert(startIndex < endIndex);
+        return StringRef(this->data() + startIndex, endIndex - startIndex);
+        UNSAFE_END;
+    }
 
 public:
-    long long toInteger() const;
-    double toDouble() const;
+    template<int = 0>
+    long long toInteger() const
+    {
+        // FIXME: this is the bad atoi, use functions from intbase
+        auto result = 0, negate = 0;
+        auto s = begin();
+        while (*s == ' ' || *s == '\t') {
+            ++s;
+        }
+        if (*s == '+' && *(s.next()) != '-') {
+            ++s;
+        }
+        if (*s == '-') {
+            negate = 1;
+            ++s;
+        }
+        for (; *s != '\0'; ++s) {
+            switch (*s) {
+            case '0' ... '9':
+                if (__builtin_mul_overflow(result, 10, &result) || __builtin_add_overflow(result, -('0' - *s), &result))
+                    return negate ? -2147483648 : 2147483647;
+                continue;
+            default: break;
+            }
+            break;
+        }
+        return negate ? -result : result;
+    }
+
+
+    template<int = 0>
+    double toDouble() const
+    {
+        if (*this == "-inf") {
+            return -__builtin_huge_val();
+        } else if (*this == "inf") {
+            return __builtin_huge_val();
+        } else if (*this == "NaN") {
+            return __builtin_nan("");
+        }
+        auto it = begin();
+        while (it != last() && *it != '.') {
+            ++it;
+        }
+        auto wholePart = double(toInteger());
+
+        String a;
+        while (it != last()) {
+            ++it;
+            a.append(*it);
+        }
+        if (auto fracInt = a.toInteger(); fracInt != 0) {
+            wholePart +=
+                (double(fracInt) / (Double::pow(10.0, int(__builtin_floor(Double::log10(double(fracInt))))) * 10.0));
+        }
+        return wholePart;
+    }
 
 private:
-    struct Printable
+    template<int = 0>
+    UNSAFE_BEGIN static String _fmt(char const* sFmt, ArrayRef<RefWrapper<Printable const>> const& objects)
     {
-        virtual ~Printable() = default;
-        virtual void output(String& result) const = 0;
-    };
+        auto result = String();
+        auto arg = objects.begin();
+        auto fmtPtr = sFmt;
 
-    template<typename T>
-    struct PrintableT final : Printable
-    {
-        T* ptr;
-
-        PrintableT(T const& ref)
-            : ptr(&const_cast<T&>(ref))
-        {}
-        void output(String& result) const override
-        {
-            if constexpr (Constructible<String, T>) {
-                result.append(*ptr);
-            } else {
-                OutputString(*ptr, [&](char c) { result.append(c); });
+        while (*fmtPtr != '`' && *fmtPtr != '\0') {
+            result.append(*fmtPtr);
+            __builtin_printf("(1) Format result is: %s\n", result.cstr());
+            fmtPtr++;
+        }
+        while (arg.hasNext()) {
+            Assert(*fmtPtr == '`', "More arguments than specified in format string");
+            (*arg)->output(result);
+            __builtin_printf("(2) Format result is: %s\n", result.cstr());
+            ++arg;
+            ++fmtPtr;
+            for (; *fmtPtr != '`' && *fmtPtr != '\0'; fmtPtr++) {
+                result.append(*fmtPtr);
+                __builtin_printf("(3) Format result is: %s\n", result.cstr());
             }
         }
-    };
-
-    String(char const* ptr, int, int);
-    static String _fmt(char const* sFmt, ArrayRef<ConstRefWrapper<Printable>> const& objects);
+        __builtin_printf("(4) Format result is: %s\n", result.cstr());
+        return result;
+        UNSAFE_END
+    }
 };
 
 
 template<typename T>
-void PrintableT<T>::output(String& result) const
+constexpr inline void PrintableT<T>::output(String& result) const
 {
     if constexpr (IsUnderlyingTypeOneOf<T, String, StringRef, char*, char>) {
         result.append(*ptr);

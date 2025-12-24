@@ -12,7 +12,6 @@
    the License.
 */
 
-#pragma once
 #ifdef __inline_core_header__
 
 namespace cm {
@@ -192,80 +191,6 @@ public:
         DCP(this)->operator[](index);
         return Iterator(this, index);
     }
-};
-
-}  // namespace cm
-
-#endif
-
-/*
-
-///
-/// Derived class must provide:
-/// ElementType
-/// iterable_begin()
-/// iterable_end()
-///
-template<class Derived, class ElementType>
-struct BufferIterable
-{
-
-    ///
-    /// Traditional iterator.
-    ///
-    class Iterator : public IEquatable<Iterator> {
-        Derived const* d_;
-        ElementType const* ptr_;
-
-    public:
-        constexpr Iterator(Derived const& d, ElementType const* ptr)
-            : d_(&d), ptr_(ptr)
-        {}
-
-        constexpr ElementType const& operator*() const noexcept { return *this->ptr_; }
-
-        constexpr ElementType& operator*() noexcept { return const_cast<ElementType&>(*this->ptr_); }
-
-        // constexpr bool equals(ElementType c) const noexcept { return *this->ptr_ == c; }
-
-        constexpr bool equals(Iterator const& i) const noexcept { return this->ptr_ == i.ptr_; }
-
-        constexpr Iterator& operator++() noexcept UNSAFE({
-            Assert(d_->begin().ptr_ <= ptr_, "Invalid iterator");
-            Assert(ptr_ < d_->end().ptr_, "Incrementing iterator beyond end");
-            ptr_++;
-            return *this;
-        });
-
-        // constexpr Iterator operator++(int) noexcept {
-        //     Iterator result = *this;
-        //     ++(*this);
-        //     return result;
-        // }
-
-        constexpr Iterator& operator--() noexcept UNSAFE({
-            Assert(d_->end().ptr_ >= ptr_, "Invalid iterator");
-            Assert(ptr_ > d_->begin().ptr_, "Decrementing iterator beyond begin");
-            ptr_--;
-            return *this;
-        });
-
-        // constexpr Iterator operator--(int) noexcept {
-        //     Iterator result = *this;
-        //     --(*this);
-        //     return result;
-        // }
-    };
-
-    Iterator begin() const
-    {
-        return Iterator(static_cast<Derived const&>(*this), static_cast<Derived const*>(this)->iterable_begin());
-    }
-
-    Iterator end() const
-    {
-        return Iterator(static_cast<Derived const&>(*this), static_cast<Derived const*>(this)->iterable_end());
-    }
 
     ///
     /// Iterator that skips over certain elements.
@@ -273,7 +198,7 @@ struct BufferIterable
     template<typename... Args>
     struct ExclusionIterator : public IEquatable<ExclusionIterator<Args...>>
     {
-        constexpr ExclusionIterator(ElementType const* ptr, ElementType const* end, Tuple<Args...> const& skip)
+        constexpr ExclusionIterator(T const* ptr, T const* end, Tuple<Args...> const& skip)
             : skip_(skip), ptr_(ptr), end_(end)
         {
 
@@ -281,11 +206,11 @@ struct BufferIterable
                 ptr_++;
         }
 
-        constexpr ElementType const& operator*() const noexcept { return *this->ptr_; }
+        constexpr T const& operator*() const noexcept { return *this->ptr_; }
 
-        constexpr ElementType& operator*() noexcept { return const_cast<ElementType&>(*this->ptr_); }
+        constexpr T& operator*() noexcept { return const_cast<T&>(*this->ptr_); }
 
-        constexpr bool equals(ElementType c) const noexcept { return *ptr_ == c; }
+        constexpr bool equals(T c) const noexcept { return *ptr_ == c; }
 
         constexpr bool equals(ExclusionIterator<Args...> const& i) const noexcept
         {
@@ -312,8 +237,8 @@ struct BufferIterable
 
     private:
         Tuple<Args...> skip_;
-        ElementType const* ptr_;
-        ElementType const* end_;
+        T const* ptr_;
+        T const* end_;
 
         constexpr bool shouldSkip_() const noexcept UNSAFE({
             return [&]<int N_>() {
@@ -335,7 +260,7 @@ struct BufferIterable
     template<typename... Args>
     struct Excluder
     {
-        constexpr Excluder(BufferIterable const& b, Args... args)
+        constexpr Excluder(LinearIteratorComponent const& b, Args... args)
             : b_(b), skip_(args...)
         {}
 
@@ -353,7 +278,7 @@ struct BufferIterable
         }
 
     private:
-        BufferIterable const& b_;
+        LinearIteratorComponent const& b_;
         Tuple<Args...> skip_;
     };
 
@@ -361,7 +286,7 @@ struct BufferIterable
     /// Iterate over the container, EXCLUDING certain elements.
     ///
     template<typename... Args>
-    requires (__is_same(Args, typename Derived::ElementType) && ...)
+    requires (__is_same(Args, T) && ...)
     Excluder<Args...> exclude(Args... args) const
     {
         return Excluder<Args...>(*this, args...);
@@ -371,18 +296,18 @@ struct BufferIterable
     struct IncludingIterator
     {
 
-        constexpr IncludingIterator(ElementType const* ptr, ElementType const* end, Tuple<Args...> const& include)
+        constexpr IncludingIterator(T const* ptr, T const* end, Tuple<Args...> const& include)
             : include_(include), ptr_(ptr), end_(end)
         {
             while (shouldSkip_() && ptr_ < end_)
                 ptr_++;
         }
 
-        constexpr operator ElementType() const { return ptr_ >= end_ ? *end_ : *ptr_; }
+        constexpr operator T() const { return ptr_ >= end_ ? *end_ : *ptr_; }
 
         constexpr IncludingIterator operator*() const noexcept { return *this; }
 
-        constexpr bool equals(ElementType c) const noexcept { return *ptr_ == c; }
+        constexpr bool equals(T c) const noexcept { return *ptr_ == c; }
 
         constexpr bool equals(IncludingIterator const& i) const noexcept
         {
@@ -411,8 +336,8 @@ struct BufferIterable
 
     private:
         Tuple<Args...> include_;
-        ElementType const* ptr_;
-        ElementType const* end_;
+        T const* ptr_;
+        T const* end_;
 
         constexpr bool shouldSkip_() const noexcept
         {
@@ -436,7 +361,7 @@ struct BufferIterable
     struct Includer
     {
 
-        constexpr Includer(BufferIterable const& b, Args... args)
+        constexpr Includer(LinearIteratorComponent const& b, Args... args)
             : b_(b), skip_(args...)
         {}
 
@@ -454,19 +379,18 @@ struct BufferIterable
         }
 
     private:
-        BufferIterable const& b_;
+        LinearIteratorComponent const& b_;
         Tuple<Args...> skip_;
     };
 
     template<typename... Args>
-    requires (__is_same(Args, typename Derived::ElementType) && ...)
+    requires (__is_same(Args, T) && ...)
     constexpr Includer<Args...> include(Args... args) const
     {
         return Includer<Args...>(*this, args...);
     }
 };
 
-
 }  // namespace cm
 
-*/
+#endif

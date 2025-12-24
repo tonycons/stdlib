@@ -14,13 +14,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(WS ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_library(commons)
-
 ##############################################################################################
 # Warning flags
 
+add_executable(commons-test)
+
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    target_compile_options(commons PUBLIC
+    target_compile_options(commons-test PUBLIC
         -Weverything
         -fsafe-buffer-usage-suggestions
         -Wnonnull
@@ -42,51 +42,13 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         -Wno-reserved-identifier
         -Wno-extra-qualification
         -Wno-bit-int-extension
+        -Wno-header-hygiene
     )
 elseif (CMAKECXX_COMPILER_ID STREQUAL "MSVC")
-    target_compile_options(commons PUBLIC 
+    target_compile_options(commons-test PUBLIC 
         /W4
     )
 endif()
 
-###############################################################################################
-# Include directories
-
-target_include_directories(commons PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
-###############################################################################################
-# Sources
-
-target_sources(commons PUBLIC
-    ${PLATFORM_SRC}
-    ${WS}/src/core/core_assert.cc
-    ${WS}/src/core/core_cstring.cc
-    ${WS}/src/core/core_memory.cc
-    ${WS}/src/core/core_newdelete.cc
-    ${WS}/src/core/core_profiler.cc
-    ${WS}/src/core/core_random.cc
-    ${WS}/src/core/core_stream.cc
-
-    ${WS}/src/algorithm/parser_alphabet.cc
-    ${WS}/src/algorithm/parser_tokenizer.cc
-
-
-    ${WS}/src/datastructs/ds_array.cc
-    ${WS}/src/datastructs/ds_bytevector.cc
-    ${WS}/src/datastructs/ds_llist.cc
-    #${WS}/src/datastructs/ds_sparsearray.cc
-    ${WS}/src/datastructs/ds_string.cc
-
-    
-    # ${WS}/src/dp/variant.cc
-    # ${WS}/src/gc/PointerTracking.cc
-    # ${WS}/src/gc/GC.cc
-    # ${WS}/src/gc/GCAllocation.cc
-)
-
-if(NOT DEFINED DONT_BUILD_commons_TEST)
-    add_executable(commons-test)
-    target_include_directories(commons-test PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-    target_link_libraries(commons-test commons)
-    target_sources(commons-test PUBLIC ${WS}/test/main.cc)
-endif()
+target_include_directories(commons-test PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_sources(commons-test PUBLIC ${WS}/test/main.cc)

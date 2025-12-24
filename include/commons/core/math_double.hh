@@ -58,13 +58,19 @@ struct Double
     /// Returns the sign of a double
     FORCEINLINE constexpr static int signum(double x) { return signbit(x) == 1 ? -1 : 1; }
 
+
+    ///
     /// Returns true if double is NaN
+    ///
     FORCEINLINE constexpr static bool isNaN(double x)
     {
         auto u = bit_cast<u64>(x);
         return (static_cast<u32>(u >> 32) & 0x7fffffff) + (static_cast<u32>(u) != 0) > 0x7ff00000;
     }
 
+    ///
+    /// Returns true if a double is positive or negative infinity
+    ///
     FORCEINLINE constexpr static int isInf(double x)
     {
         auto u = bit_cast<u64>(x);
@@ -115,60 +121,83 @@ struct Double
         return y < 0 ? 1.0 / r : r;
     }
 
-} inline constexpr Double;
 
-
-///
-/// Converts a floating-point value into a String
-///
-template<IsFloatingPoint T>
-void OutputString(T val, auto const& writer)
-{
-    i64 integer;
-    int zero_threshold = 16;
-    int zero_seq_len = 0;
-
-    if (__builtin_isnan(val)) {
-        writer('N'), writer('a'), writer('N');
-        return;
-    } else if (__builtin_isinf(val)) {
-        if (__builtin_signbit(val)) {
-            writer('-'), writer('i'), writer('n'), writer('f');
-            return;
-        } else {
-            writer('i'), writer('n'), writer('f');
-            return;
-        }
+    constexpr static auto frexp_v2_finite_nonzero(double value) -> Tuple<double, int>
+    {
+        u64 const bits = __builtin_bit_cast(u64, value);
+        int const expon = ((bits >> 52) & 0x7FF) - 1022;
+        u64 const final_bits = (bits & 0x800fffff'ffffffff) | 0x3fe0000000000000;
+        return {__builtin_bit_cast(double, final_bits), expon};
     }
-    if (val < 0) {
-        writer('-');
-        val = -val;
-    }
-    integer = i64(val);
-    if (integer == 0) {
-        writer('0');
-        return;
-    }
-    OutputString(integer, writer);
-    writer('.');
 
-    while (true) {
-        val = val - static_cast<double>(i64(val));
-        val *= 10;
-        integer = i64(val);
-        if (integer == 0) {
-            zero_seq_len++;
-            writer('0');
-            if (zero_seq_len >= zero_threshold) {
-                return;
+    constexpr static auto frexp_v2(double value) -> Tuple<double, int>
+    {
+        u64 const bits = __builtin_bit_cast(u64, value);
+        bool const isNotFiniteOrIsZero = (bits >= 0x7FF0000000000000 || bits == 0);
+
+        int const expon = (((bits >> 52) & 0x7FF) - 1022) * !isNotFiniteOrIsZero;
+        u64 const finalBits = (bits & 0x800fffff'ffffffff) | 0x3fe0000000000000;
+
+        u128 const choice = (u128(bits) << 64) | u128(finalBits);
+        u8 const shift = u8(u8(isNotFiniteOrIsZero) << 6);
+        u64 const finalFinalBits = u64((choice & (u128(~0ULL) << shift)) >> shift);
+
+        double result = __builtin_bit_cast(double, finalFinalBits);
+        return {result, expon};
+    }
+
+    ///
+    /// Calculates the base 2 logarithm, accurate to at least 50 bits.
+    /// From https://github.com/emjay2k/Approximations/blob/master/logapprox.h#L195
+    ///
+    constexpr static double log2(double value)
+    {
+        using T = double;
+        constexpr double a = 1.000000000000000000000e+00L, b = 1.251649209001242901707e+01L,
+                         c = 2.046583854860732643033e+01L, d = -1.097536826489419503616e+01L,
+                         e = -1.881965876655596403566e+01L, f = -4.046684236630626152476e+00L,
+                         g = -1.406193705389736370304e-01L, h = 1.518692933639071429575e-01L,
+                         i = 3.897795033656223484542e+00L, j = 1.728188727732104723600e+01L,
+                         k = 2.168720176727976678421e+01L, l = 8.568477446142038544963e+00L,
+                         m = 9.581795852523320444760e-01L, n = 1.851054408942580734032e-02L;
+
+        u64 mask = (__builtin_bit_cast(u64, value));
+        if (mask >= 0x7FF0000000000000 || value <= 0.0) [[unlikely]] {
+            if (value < 0.0) {
+                return -QNAN;
+            } else if (mask == 0) {
+                return NEG_INF;
+            } else {
+                return value;
             }
-        } else {
-            zero_seq_len = 0;
-            OutputString(integer, writer);
         }
-        zero_threshold--;
+        auto [dM, iExp] = frexp_v2_finite_nonzero(value);
+        T dM2 = dM * dM;
+        T dM3 = dM * dM2;
+        T dM4 = dM2 * dM2;
+        T dM5 = dM2 * dM3;
+        T dM6 = dM3 * dM3;
+        T x = 1.0 / ((((h * dM6 + n) + (i * dM5 + m * dM)) + (j * dM4 + l * dM2)) + k * dM3);
+        return iExp + x * (((((a * dM6 + g) + (c * dM4 + d * dM3)) + b * dM5) + f * dM) + e * dM2);
     }
-}
+
+    ///
+    /// Calculates the base 10 logarithm, accurate to at least 50 bits
+    ///
+    constexpr static double log10(double x)
+    {
+        return double(0.301029995663981195213738894724493026768189881462108541310L) * log2(x);
+    }
+
+    ///
+    /// Calculates the base e logarithm, accurate to at least 50 bits
+    ///
+    constexpr static double ln(double x)
+    {
+        return double(0.693147180559945309417232121458176568075500134360255254120L) * log2(x);
+    }
+
+} inline constexpr Double;
 
 }  // namespace cm
 #endif

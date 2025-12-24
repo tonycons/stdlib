@@ -13,7 +13,7 @@
 */
 
 #pragma once
-#include <commons/core.hh>
+#include "../core.hh"
 
 
 namespace cm::Arrays {

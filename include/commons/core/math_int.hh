@@ -504,68 +504,6 @@ constexpr static auto msd(IsInteger auto x) -> decltype(x)
 // #endif
 
 
-///
-/// Generates a string representation for a boolean value.
-///
-template<IsBool T>
-void OutputString(T value, auto const& out)
-{
-    if (value) {
-        out('t');
-        out('r');
-        out('u');
-        out('e');
-    } else {
-        out('f');
-        out('a');
-        out('l');
-        out('s');
-        out('e');
-    }
-}
-
-///
-/// Converts an integer value into a string using a particular base-N representation.
-/// @tparam Base The base-N representation
-/// @param value The value
-///
-template<IntBaseFmt Base = IntBaseFmt::B10, IntegerParsingScheme S = IntegerParsingScheme::DEFAULT>
-void OutputString(IsInteger auto value, auto const& writer)
-{
-    using T = decltype(value);
-    if constexpr (S == IntegerParsingScheme::JSON) {
-        static_assert(Base == IntBaseFmt::B10, "JSON only supports base 10");
-    }
-    if constexpr (IsIntegerSigned<T>) {
-        if (value < 0) {
-            writer('-');
-            value = -value;
-        }
-    }
-    // Handle prefixes
-    if constexpr (Base == IntBaseFmt::B2) {
-        if constexpr (S == IntegerParsingScheme::YAML) {
-            writer("0b");
-        }
-    } else if constexpr (Base == IntBaseFmt::B8) {
-        if constexpr (S == IntegerParsingScheme::YAML) {
-            writer("0o");
-        }
-    } else if constexpr (Base == IntBaseFmt::B16) {
-        if constexpr (S == IntegerParsingScheme::YAML) {
-            writer("0x");
-        }
-    }
-    if (value == 0) {
-        writer(intBaseTables[uint(Base)].charSet[0]);
-        return;
-    }
-    do {
-        writer(intBaseTables[uint(Base)].charSet[msd<uint(Base)>(value)]);
-        value /= uint(Base);
-    } while (value != 0);
-}
-
 }  // namespace cm
 
 #endif
