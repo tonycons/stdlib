@@ -3177,15 +3177,14 @@ public:
     constexpr Union& operator=(GivenType&& t1)
     {
         using Init = decltype(TryInit<0, GivenType, Types...>::next(_data, Forward<GivenType>(t1)));
-        auto newTag = static_cast<unsigned char>(Init::Tag);
-        if (_tag != newTag) {
-            if constexpr (hasNonTrivialDestructor()) {
-                Metadata::_dtor(_data);
-            }
-            _tag = newTag;
-            TryInit<0, GivenType, Types...>::next(_data, Forward<GivenType>(t1));
-            storeCallbacksFor<typename Init::WhichOne>();
+        auto newTag = static_cast<decltype(_tag)>(Init::Tag);
+
+        if constexpr (hasNonTrivialDestructor()) {
+            Metadata::_dtor(_data);
         }
+        TryInit<0, GivenType, Types...>::next(_data, Forward<GivenType>(t1));
+        storeCallbacksFor<typename Init::WhichOne>();
+        _tag = newTag;
         return *this;
     }
 
@@ -3212,7 +3211,12 @@ public:
                 return _tag == Init::Tag;
             }
         } else {
-            static_assert(false, "Unhandled edge case");
+            using Init = decltype(TryInit<0, T, Types...>::next(const_cast<u8*>(_data), (T(_ref<T>()))));
+            if constexpr (IsSame<Init, InitFailure>) {
+                return false;
+            } else {
+                return _tag == Init::Tag;
+            }
         }
     }
 
@@ -9007,9 +9011,9 @@ struct FileOutStream : public Optional<LinuxFileOutStream>
 # 21 "./include/commons/system/linux/linuxshell.inl"
 struct LinuxShell : NonCopyable
 {
-    constexpr LinuxShell() noexcept = default;
-    constexpr LinuxShell(LinuxShell&&) noexcept = default;
-    constexpr LinuxShell& operator=(LinuxShell&&) noexcept = default;
+    consteval LinuxShell() noexcept = default;
+    consteval LinuxShell(LinuxShell&&) noexcept = default;
+    consteval LinuxShell& operator=(LinuxShell&&) noexcept = default;
     constexpr ~LinuxShell() noexcept = default;
 
 

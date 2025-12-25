@@ -7,11 +7,18 @@
 
 using namespace cm;
 
+void foo(Union<double, char const*>& u) { u = "Hello"; }
+
 
 int main()
 {
-    auto str = "Hello world `"_fmt(1);
-    stdout.println(str);
+    Union<double, char const*> x = "aaaa";
+    foo(x);
+
+    stdout.println(x.get<char const*>());
+
+    // auto str = "Hello world `"_fmt(1);
+    // stdout.println(str);
 }
 /*
 
