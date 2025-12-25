@@ -53,23 +53,6 @@ namespace cm {
 
 // For an unknown operating system, set all the stdout and shell objects to None.
 
-///
-/// An Optional standard output stream.
-/// It may be set to None on systems that don't have a standard output stream.
-///
-inline Optional<OutStream&> const stdout = None;
-
-///
-/// An Optional standard error stream.
-/// It may be set to None on systems that don't have a standard error stream.
-///
-inline Optional<OutStream&> const stderr = None;
-
-///
-/// An Optional system shell e.g. Bash.
-/// It may be set to None on systems that don't have a shell.
-///
-inline Optional<int> const shell = None;
 
 void _emergencyPrint(char const* str) {}
 

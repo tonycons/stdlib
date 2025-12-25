@@ -7,7 +7,7 @@ using namespace cm;
 ///
 inline void testOptional()
 {
-    stdout->println("\nTESTING Optional<T>");
+    stdout.println("\nTESTING Optional<T>");
     // Test 1: dangling assignment warning
 #ifdef TEST_THAT_WARNINGS_ARE_SHOWN
     {
@@ -28,25 +28,25 @@ inline void testOptional()
     }
     struct TestOD
     {
-        TestOD(int) { stdout->print(" constructor "); };
-        ~TestOD() { stdout->print(" destructor "); }
-        TestOD(TestOD const&) { stdout->print(" copy constructor "); }
-        void operator=(TestOD const&) { stdout->print(" copy assignment "); }
+        TestOD(int) { stdout.print(" constructor "); };
+        ~TestOD() { stdout.print(" destructor "); }
+        TestOD(TestOD const&) { stdout.print(" copy constructor "); }
+        void operator=(TestOD const&) { stdout.print(" copy assignment "); }
     };
     usize t = 0;
     {
         Optional<StringRef> a = None;
-        stdout->println("\t(`) Expect \"false\" : `", t++, a.hasValue());
-        stdout->println("\t(`) Expect \"None\" : `", t++, a);
-        stdout->println("\t(`) Expect \"Default\" : `", t++, a.valueOr("Default"));
+        stdout.println("\t(`) Expect \"false\" : `", t++, a.hasValue());
+        stdout.println("\t(`) Expect \"None\" : `", t++, a);
+        stdout.println("\t(`) Expect \"Default\" : `", t++, a.valueOr("Default"));
         a = "Hello";
-        stdout->println("\t(`) Expect \"true\" : `", t++, a.hasValue());
-        stdout->println("\t(`) Expect \"Hello\" : `", t++, a);
+        stdout.println("\t(`) Expect \"true\" : `", t++, a.hasValue());
+        stdout.println("\t(`) Expect \"Hello\" : `", t++, a);
 
         Optional<TestOD> b = None;
-        stdout->print("\t(`) Expect \"constructor\" : ", t++);
+        stdout.print("\t(`) Expect \"constructor\" : ", t++);
         b = 1;
-        stdout->print("\n\t(`) Expect \"destructor\" : ", t++);
+        stdout.print("\n\t(`) Expect \"destructor\" : ", t++);
     }
-    stdout->println("\nFINISHED TESTING Optional<T>");
+    stdout.println("\nFINISHED TESTING Optional<T>");
 }

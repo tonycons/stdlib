@@ -7803,6 +7803,12 @@ public:
     using Status = StreamStatus;
 
 
+    constexpr inline Derived* DP(IOutStream const* self) const
+    {
+        return static_cast<Derived*>(const_cast<IOutStream*>(self));
+    }
+
+
 
 
     constexpr static StringRef LS =
@@ -7824,15 +7830,15 @@ public:
 
 
 
-    inline Derived& writeBytes(void const* data, size_t sizeBytes)
+    constexpr inline auto& writeBytes(void const* data, size_t sizeBytes) const
     {
-        return static_cast<Derived&>(*this).writeBytes(data, sizeBytes);
+        return DP(this)->writeBytes(data, sizeBytes);
     }
 
 
 
 
-    inline Derived& flush() { return static_cast<Derived&>(*this).flush(); }
+    constexpr inline auto& flush() const { return DP(this)->flush(); }
 
 
 
@@ -7840,24 +7846,24 @@ public:
 
 
 
-    inline Result<Status, Status> close() { return static_cast<Derived&>(*this)->close(); }
+    constexpr inline Result<Status, Status> close() const { return DP(this)->close(); }
 
 
 
 
-    inline Status status() const { return static_cast<Derived&>(*this)->status(); }
+    constexpr inline Status status() const { return DP(this)->status(); }
 
 
 
 
-    inline bool ok() { return status() == STATUS_OK; }
-# 85 "./include/commons/system/outstream.inl"
-    inline void print(auto const& value)
+    constexpr inline bool ok() const { return status() == STATUS_OK; }
+# 91 "./include/commons/system/outstream.inl"
+    inline void print(auto const& value) const
     {
         _print('`', ArrayRef<RefWrapper<Printable const>>{RefWrapper<Printable const>(PrintableT(value))});
     }
     template<int N>
-    inline void print(char const (&str)[N])
+    inline void print(char const (&str)[N]) const
     {
         writeBytes(str, max(N - 1, 0));
     }
@@ -7867,7 +7873,7 @@ public:
 
 
 
-    inline void print(StringRef const& sFmt, auto const&... args)
+    inline void print(StringRef const& sFmt, auto const&... args) const
     {
         this->_print(sFmt, ArrayRef<RefWrapper<Printable const>>{(RefWrapper<Printable const>(PrintableT(args)))...});
     }
@@ -7878,13 +7884,13 @@ public:
 
 
 
-    inline void println(auto const& value)
+    inline void println(auto const& value) const
     {
         this->print(value);
         this->print(LS);
     }
     template<int N>
-    inline void println(char const (&str)[N])
+    inline void println(char const (&str)[N]) const
     {
         this->writeBytes(str, max(N - 1, 0));
         this->writeBytes(LS.data(), LS.sizeBytes());
@@ -7895,11 +7901,11 @@ public:
 
 
 
-    inline void println(StringRef sFmt, auto const&... args) { print(sFmt, args...), print(LS); }
+    inline void println(StringRef sFmt, auto const&... args) const { print(sFmt, args...), print(LS); }
 
 
 private:
-    void _print(StringRef const& format, ArrayRef<RefWrapper<Printable const>> const& objects)
+    void _print(StringRef const& format, ArrayRef<RefWrapper<Printable const>> const& objects) const
     {
         auto fmtIter = format.begin();
         auto objIter = objects.begin();
@@ -8734,36 +8740,25 @@ static inline int linux_is_error_result(u32 result)
 # 21 "./include/commons/system/linux/linuxstdout.inl"
 class LinuxStandardOutStream : public IOutStream<LinuxStandardOutStream> {
 protected:
-    bool _state;
+    Status _state = STATUS_OK;
     int _fd = 1;
 
 public:
-    constexpr inline LinuxStandardOutStream() = default;
-    constexpr inline ~LinuxStandardOutStream() = default;
-    constexpr inline LinuxStandardOutStream(LinuxStandardOutStream const&) = default;
-    constexpr inline LinuxStandardOutStream& operator=(LinuxStandardOutStream const&) = default;
+    consteval inline LinuxStandardOutStream() = default;
+    consteval inline LinuxStandardOutStream(LinuxStandardOutStream const&) = default;
+    consteval inline LinuxStandardOutStream& operator=(LinuxStandardOutStream const&) = default;
 
 
-    LinuxStandardOutStream& writeBytes(void const* data, size_t sizeBytes)
+    auto const& writeBytes(void const* data, size_t sizeBytes) const
     {
-        if (_fd != 1 && _fd != 2) {
-            _fd = 2;
-        }
 
-        auto r = ssize_t(LinuxSyscall(LinuxSyscall.write, usize(_fd), usize(data), usize(sizeBytes)));
 
-        if (r < 0) {
-            _state = STATUS_FAILED_FLUSH;
-            return *this;
-        }
-        [[assume(r >= 0)]];
-        if (sizeBytes != size_t(size_t(size_t(size_t(r)))) ) {
-            _state = STATUS_NOT_ALL_BYTES_FLUSHED;
-        }
+        (LinuxSyscall(LinuxSyscall.write, usize(_fd), usize(data), usize(sizeBytes)));
+# 46 "./include/commons/system/linux/linuxstdout.inl"
         return *this;
     }
 
-    constexpr inline LinuxStandardOutStream& flush() { return *this; }
+    constexpr inline auto const& flush() const { return *this; }
 };
 
 
@@ -8771,20 +8766,20 @@ public:
 
 class LinuxStandardErrOutStream final : public LinuxStandardOutStream {
 public:
-    constexpr inline LinuxStandardErrOutStream() { this->_fd = 2; }
+    consteval inline LinuxStandardErrOutStream() { this->_fd = 2; }
 };
 
 
 
 
 
-inline Optional<LinuxStandardOutStream> const stdout = LinuxStandardOutStream();
+constexpr inline auto stdout = LinuxStandardOutStream();
 
 
 
 
 
-inline Optional<LinuxStandardErrOutStream> const stderr = LinuxStandardErrOutStream();
+constexpr inline auto stderr = LinuxStandardErrOutStream();
 # 48 "./include/commons/system.hh" 2
 # 1 "./include/commons/system/linux/linuxfileout.inl" 1
 # 21 "./include/commons/system/linux/linuxfileout.inl"
@@ -9012,7 +9007,7 @@ inline Optional<LinuxShell> const shell = LinuxShell();
 # 50 "./include/commons/system.hh" 2
 # 1 "./include/commons/system/linux/linuxruntime.inl" 1
 # 51 "./include/commons/system.hh" 2
-# 79 "./include/commons/system.hh"
+# 62 "./include/commons/system.hh"
 }
 # 30 "./include/commons/startup.hh" 2
 # 40 "./include/commons/startup.hh"

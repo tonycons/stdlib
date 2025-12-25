@@ -11,7 +11,7 @@ using namespace cm;
 int main()
 {
     auto str = "Hello world `"_fmt(1);
-    stdout->println(str);
+    stdout.println(str);
 }
 /*
 

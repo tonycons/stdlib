@@ -25,6 +25,12 @@ class IOutStream {
 public:
     using Status = StreamStatus;
 
+    /// UGH :(
+    constexpr inline Derived* DP(IOutStream const* self) const
+    {
+        return static_cast<Derived*>(const_cast<IOutStream*>(self));
+    }
+
     ///
     /// Represents the OS-dependent line separator.
     ///
@@ -47,15 +53,15 @@ public:
     /// @param data The data
     /// @param sizeBytes The data size
     ///
-    inline Derived& writeBytes(void const* data, size_t sizeBytes)
+    constexpr inline auto& writeBytes(void const* data, size_t sizeBytes) const
     {
-        return static_cast<Derived&>(*this).writeBytes(data, sizeBytes);
+        return DP(this)->writeBytes(data, sizeBytes);
     }
 
     ///
     /// Sends all pending data to the target.
     ///
-    inline Derived& flush() { return static_cast<Derived&>(*this).flush(); }
+    constexpr inline auto& flush() const { return DP(this)->flush(); }
 
     ///
     /// Closes the stream. Returns a bitmask indicating the success of the close operation.
@@ -63,17 +69,17 @@ public:
     /// where close() does nothing (such as StringStream).
     /// For streams where close() does nothing (such as StringStream), close() returns true
     ///
-    inline Result<Status, Status> close() { return static_cast<Derived&>(*this)->close(); }
+    constexpr inline Result<Status, Status> close() const { return DP(this)->close(); }
 
     ///
     /// Get the general status of the stream
     ///
-    inline Status status() const { return static_cast<Derived&>(*this)->status(); }
+    constexpr inline Status status() const { return DP(this)->status(); }
 
     ///
     /// Returns true if the stream has no errors
     ///
-    inline bool ok() { return status() == STATUS_OK; }
+    constexpr inline bool ok() const { return status() == STATUS_OK; }
 
 
     /// =========================================================================================================================
@@ -82,12 +88,12 @@ public:
     /// Print a value to the stream.
     /// @param arg The value
     ///
-    inline void print(auto const& value)
+    inline void print(auto const& value) const
     {
         _print('`', ArrayRef<RefWrapper<Printable const>>{RefWrapper<Printable const>(PrintableT(value))});
     }
     template<int N>
-    inline void print(char const (&str)[N])
+    inline void print(char const (&str)[N]) const
     {
         writeBytes(str, max(N - 1, 0));
     }
@@ -97,7 +103,7 @@ public:
     /// @param sFmt The format string
     /// @param args The arguments
     ///
-    inline void print(StringRef const& sFmt, auto const&... args)
+    inline void print(StringRef const& sFmt, auto const&... args) const
     {
         this->_print(sFmt, ArrayRef<RefWrapper<Printable const>>{(RefWrapper<Printable const>(PrintableT(args)))...});
     }
@@ -108,13 +114,13 @@ public:
     /// Print a value followed by a newline to the stream.
     /// @param arg The value
     ///
-    inline void println(auto const& value)
+    inline void println(auto const& value) const
     {
         this->print(value);
         this->print(LS);
     }
     template<int N>
-    inline void println(char const (&str)[N])
+    inline void println(char const (&str)[N]) const
     {
         this->writeBytes(str, max(N - 1, 0));
         this->writeBytes(LS.data(), LS.sizeBytes());
@@ -125,11 +131,11 @@ public:
     /// @param sFmt The format string
     /// @param args The arguments
     ///
-    inline void println(StringRef sFmt, auto const&... args) { print(sFmt, args...), print(LS); }
+    inline void println(StringRef sFmt, auto const&... args) const { print(sFmt, args...), print(LS); }
 
 
 private:
-    void _print(StringRef const& format, ArrayRef<RefWrapper<Printable const>> const& objects)
+    void _print(StringRef const& format, ArrayRef<RefWrapper<Printable const>> const& objects) const
     {
         auto fmtIter = format.begin();
         auto objIter = objects.begin();
