@@ -5288,7 +5288,6 @@ namespace cm {
 struct Double
 {
     constexpr static double MIN_VALUE = -1.7976931348623157E+308;
-
     constexpr static double MAX_VALUE = 1.7976931348623157E+308;
 
     constexpr static double ZERO = double(0);
@@ -5345,19 +5344,51 @@ struct Double
     [[gnu::always_inline]] inline constexpr static double fma(double x, double y, double z)
     {
 #pragma clang fp contract(fast)
-# 85 "./include/commons/core/math_double.hh"
+# 84 "./include/commons/core/math_double.hh"
                                           ;
         return (x * y) + z;
     }
 
-
-    [[gnu::always_inline]] inline constexpr static double trunc(double x)
+    [[gnu::flatten]]
+    constexpr inline static double floor(double value)
     {
-        long long i = static_cast<long long>(x);
-        if (x < 0) {
-            return static_cast<double>(i + (i < static_cast<long long>(x)));
+        if consteval {
+            return __builtin_floor(value);
+        } else {
+
+            return __builtin_ia32_roundsd({value, value}, {value, value}, 9)[0];
+
+
+
         }
-        return static_cast<double>(i - (i > static_cast<long long>(x)));
+    }
+
+    [[gnu::flatten]]
+    constexpr inline static double ceil(double value)
+    {
+        if consteval {
+            return __builtin_ceil(value);
+        } else {
+
+            return __builtin_ia32_roundsd({value, value}, {value, value}, 10)[0];
+
+
+
+        }
+    }
+
+    [[gnu::flatten]]
+    constexpr inline static double trunc(double value)
+    {
+        if consteval {
+            return __builtin_trunc(value);
+        } else {
+
+            return __builtin_ia32_roundsd({value, value}, {value, value}, 11)[0];
+
+
+
+        }
     }
 
 
@@ -7168,11 +7199,11 @@ public:
     double toDouble() const
     {
         if (*this == "-inf") {
-            return -__builtin_huge_val();
+            return Double::NEG_INF;
         } else if (*this == "inf") {
-            return __builtin_huge_val();
+            return Double::POS_INF;
         } else if (*this == "NaN") {
-            return __builtin_nan("");
+            return Double::QNAN;
         }
         auto it = begin();
         while (it != last() && *it != '.') {
@@ -7187,7 +7218,7 @@ public:
         }
         if (auto fracInt = a.toInteger(); fracInt != 0) {
             wholePart +=
-                (double(fracInt) / (Double::pow(10.0, int(__builtin_floor(Double::log10(double(fracInt))))) * 10.0));
+                (double(fracInt) / (Double::pow(10.0, int(Double::floor(Double::log10(double(fracInt))))) * 10.0));
         }
         return wholePart;
     }
@@ -8982,7 +9013,7 @@ struct LinuxShell : NonCopyable
     constexpr ~LinuxShell() noexcept = default;
 
 
-    inline int execute(String const& command, Optional<Function<void(void const*, usize)>> output = None)
+    inline int execute(String const& command, Optional<Function<void(void const*, usize)>> output = None) const
     {
 
         auto s = _escapeCommand(command);
@@ -9000,10 +9031,10 @@ struct LinuxShell : NonCopyable
         return pclose(fp);
     }
 
-    inline String _escapeCommand(String const& command) { return command.replace("\"", "\\\""); }
+    inline String _escapeCommand(String const& command) const { return command.replace("\"", "\\\""); }
 };
 
-inline Optional<LinuxShell> const shell = LinuxShell();
+constexpr inline auto shell = LinuxShell();
 # 50 "./include/commons/system.hh" 2
 # 1 "./include/commons/system/linux/linuxruntime.inl" 1
 # 51 "./include/commons/system.hh" 2

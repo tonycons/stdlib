@@ -26,7 +26,7 @@ struct LinuxShell : NonCopyable
     constexpr ~LinuxShell() noexcept = default;
 
 
-    inline int execute(String const& command, Optional<Function<void(void const*, usize)>> output = None)
+    inline int execute(String const& command, Optional<Function<void(void const*, usize)>> output = None) const
     {
         //__builtin_printf("Command is this: %s\n", command.cstr());
         auto s = _escapeCommand(command);
@@ -44,9 +44,9 @@ struct LinuxShell : NonCopyable
         return pclose(fp);
     }
 
-    inline String _escapeCommand(String const& command) { return command.replace("\"", "\\\""); }
+    inline String _escapeCommand(String const& command) const { return command.replace("\"", "\\\""); }
 };
 
-inline Optional<LinuxShell> const shell = LinuxShell();
+constexpr inline auto shell = LinuxShell();
 
 #endif

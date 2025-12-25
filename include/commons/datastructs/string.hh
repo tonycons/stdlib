@@ -254,11 +254,11 @@ public:
     double toDouble() const
     {
         if (*this == "-inf") {
-            return -__builtin_huge_val();
+            return Double::NEG_INF;
         } else if (*this == "inf") {
-            return __builtin_huge_val();
+            return Double::POS_INF;
         } else if (*this == "NaN") {
-            return __builtin_nan("");
+            return Double::QNAN;
         }
         auto it = begin();
         while (it != last() && *it != '.') {
@@ -273,7 +273,7 @@ public:
         }
         if (auto fracInt = a.toInteger(); fracInt != 0) {
             wholePart +=
-                (double(fracInt) / (Double::pow(10.0, int(__builtin_floor(Double::log10(double(fracInt))))) * 10.0));
+                (double(fracInt) / (Double::pow(10.0, int(Double::floor(Double::log10(double(fracInt))))) * 10.0));
         }
         return wholePart;
     }

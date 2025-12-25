@@ -26,13 +26,12 @@ namespace cm {
 struct Double
 {
     constexpr static double MIN_VALUE = -1.7976931348623157E+308;
-
     constexpr static double MAX_VALUE = 1.7976931348623157E+308;
 
     constexpr static double ZERO = double(0);
-
+    /// Positive infinity
     constexpr static double POS_INF = bit_cast<double>(0x7FF0000000000000);
-
+    /// Negative infinity
     constexpr static double NEG_INF = bit_cast<double>(0xFFF0000000000000);
 
     /// Quiet NaN
@@ -86,14 +85,46 @@ struct Double
         return (x * y) + z;
     }
 
-    //
-    FORCEINLINE constexpr static double trunc(double x)
+    [[gnu::flatten]]
+    constexpr inline static double floor(double value)
     {
-        long long i = static_cast<long long>(x);
-        if (x < 0) {
-            return static_cast<double>(i + (i < static_cast<long long>(x)));
+        if consteval {
+            return __builtin_floor(value);
+        } else {
+#if __x86_64__
+            return __builtin_ia32_roundsd({value, value}, {value, value}, 9)[0];
+#else
+            return __builtin_floor(value);
+#endif
         }
-        return static_cast<double>(i - (i > static_cast<long long>(x)));
+    }
+
+    [[gnu::flatten]]
+    constexpr inline static double ceil(double value)
+    {
+        if consteval {
+            return __builtin_ceil(value);
+        } else {
+#if __x86_64__
+            return __builtin_ia32_roundsd({value, value}, {value, value}, 10)[0];
+#else
+            return __builtin_ceil(value);
+#endif
+        }
+    }
+
+    [[gnu::flatten]]
+    constexpr inline static double trunc(double value)
+    {
+        if consteval {
+            return __builtin_trunc(value);
+        } else {
+#if __x86_64__
+            return __builtin_ia32_roundsd({value, value}, {value, value}, 11)[0];
+#else
+            return __builtin_trunc(value);
+#endif
+        }
     }
 
 
