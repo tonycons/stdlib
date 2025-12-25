@@ -69,7 +69,7 @@ public:
 
     */
     template<typename T>
-    static consteval Class make(char const* name)
+    static consteval Class init(char const* name)
     {
         Class result{};
         result.name = name;
@@ -114,16 +114,16 @@ public:
 
 
     template<unsigned... Idxs>
-    struct _name_buffer
+    struct NameBuffer
     {
-        consteval _name_buffer(auto... args)
+        consteval NameBuffer(auto... args)
             : data{args...}
         {}
         char data[sizeof...(Idxs) + 1];
     };
 
     template<typename T>
-    static consteval auto _get_name_buffer()
+    static consteval auto _getNameBuffer()
     {
         // using namespace std::literals::string_view_literals;
 
@@ -142,32 +142,32 @@ public:
 #else
 #error Unsupported compiler
 #endif
-        _Pragma("clang diagnostic push") {}
-        _Pragma("clang diagnostic ignored \"-Wunsafe-buffer-usage\"") {}
-        auto _to_name_buffer = []<size_t... Idxs>(char const* str, IntegerSequence<size_t, Idxs...>) consteval {
-            return _name_buffer<Idxs...>(str[Idxs]..., '\0');
+        _Pragma("clang diagnostic push");
+        _Pragma("clang diagnostic ignored \"-Wunsafe-buffer-usage\"");
+        auto toNameBuffer = []<size_t... Idxs>(char const* str, IntegerSequence<size_t, Idxs...>) consteval {
+            return NameBuffer<Idxs...>(str[Idxs]..., '\0');
         };
 
-        return _to_name_buffer(
+        return toNameBuffer(
             (Ptr::findSubstring(function, prefix) + (sizeof(prefix) - 1)),
             MakeIntegerSequence<
                 size_t, (Ptr::findSubstring(function, suffix) -
                          (Ptr::findSubstring(function, prefix) + (sizeof(prefix) - 1)))>{});
-        _Pragma("clang diagnostic pop") {}
+        _Pragma("clang diagnostic pop");
     }
 } *ClassPtr, &ClassRef;
 
 
 template<typename T>
-struct ClassStorage
+struct ClassData
 {
-    constexpr static auto _name_buffer = Class::_get_name_buffer<T>();
-    constexpr static char const* name = _name_buffer.data;
-    constexpr static auto c = Class::make<T>(name);
+    constexpr static auto nameBuffer = Class::_getNameBuffer<T>();
+    constexpr static char const* name = nameBuffer.data;
+    constexpr static auto class_ = Class::init<T>(name);
 };
 
 template<typename T>
-constexpr Class const& ClassOf = ClassStorage<T>::c;
+constexpr Class const& ClassOf = ClassData<T>::class_;
 
 
 }  // namespace cm

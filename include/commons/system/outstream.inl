@@ -20,7 +20,8 @@ namespace cm {
 ///
 /// Interface for streaming data to a target.
 ///
-class OutStream {
+template<typename Derived>
+class IOutStream {
 public:
     using Status = StreamStatus;
 
@@ -36,22 +37,25 @@ public:
         "\n";
 #endif
 
-    virtual ~OutStream() = default;
-    constexpr OutStream() = default;
-    constexpr OutStream(OutStream const&) = default;
-    constexpr OutStream& operator=(OutStream const&) = default;
+    constexpr ~IOutStream() = default;
+    constexpr IOutStream() = default;
+    constexpr IOutStream(IOutStream const&) = default;
+    constexpr IOutStream& operator=(IOutStream const&) = default;
 
     ///
     /// Adds a series of bytes to the currently pending data.
     /// @param data The data
     /// @param sizeBytes The data size
     ///
-    virtual OutStream& writeBytes(void const* data, size_t sizeBytes) = 0;
+    inline Derived& writeBytes(void const* data, size_t sizeBytes)
+    {
+        return static_cast<Derived&>(*this).writeBytes(data, sizeBytes);
+    }
 
     ///
     /// Sends all pending data to the target.
     ///
-    virtual OutStream& flush() = 0;
+    inline Derived& flush() { return static_cast<Derived&>(*this).flush(); }
 
     ///
     /// Closes the stream. Returns a bitmask indicating the success of the close operation.
@@ -59,12 +63,12 @@ public:
     /// where close() does nothing (such as StringStream).
     /// For streams where close() does nothing (such as StringStream), close() returns true
     ///
-    inline virtual Result<Status, Status> close() { return Ok(STATUS_OK); }
+    inline Result<Status, Status> close() { return static_cast<Derived&>(*this)->close(); }
 
     ///
     /// Get the general status of the stream
     ///
-    inline virtual Status status() const { return STATUS_OK; }
+    inline Status status() const { return static_cast<Derived&>(*this)->status(); }
 
     ///
     /// Returns true if the stream has no errors

@@ -2041,30 +2041,36 @@ class CFunction;
 
 
 template<typename ReturnType_, typename... Args>
-class CFunction<ReturnType_(Args...)> {
+class CFunction<ReturnType_(Args...)> : IEquatable<CFunction<ReturnType_(Args...)>> {
 public:
     using ReturnType = ReturnType_;
     using PtrType = ReturnType (*)(Args...);
 
-    constexpr CFunction()
+    constexpr inline CFunction(CFunction const&) = default;
+    constexpr inline CFunction& operator=(CFunction const&) = default;
+    constexpr inline CFunction(CFunction&&) = default;
+    constexpr inline CFunction& operator=(CFunction&&) = default;
+
+    constexpr inline CFunction()
         : _func(nullptr)
     {}
 
-    constexpr CFunction(ReturnType (*funcPtr)(Args...))
+    constexpr inline CFunction(ReturnType (*funcPtr)(Args...))
         : _func(funcPtr)
     {}
 
-    constexpr CFunction& operator=(ReturnType (*funcPtr)(Args...))
+    constexpr inline CFunction& operator=(ReturnType (*funcPtr)(Args...))
     {
         _func = funcPtr;
         return *this;
     }
 
-    constexpr ReturnType operator()(Args... args) const { return _func(args...); }
+    constexpr inline bool equals(CFunction const& other) const { return _func == other._func; }
+    constexpr inline bool equals(ReturnType (*funcPtr)(Args...)) const { return _func == funcPtr; }
 
-    constexpr operator bool() const { return _func != nullptr; }
-
-    constexpr operator PtrType() const { return _func; }
+    constexpr inline ReturnType operator()(Args... args) const { return _func(args...); }
+    constexpr inline operator bool() const { return _func != nullptr; }
+    constexpr inline operator PtrType() const { return _func; }
 
 private:
     ReturnType (*_func)(Args...);
@@ -2090,33 +2096,41 @@ private:
     };
 
     template<typename T>
-    struct CallableT : public Callable
-    {
-    private:
+    class CallableT : public Callable {
         T t_;
 
     public:
         CallableT(T const& t)
             : t_(t)
         {}
-
         ~CallableT() override = default;
-
         ReturnType invoke(Args... args) override { return t_(args...); }
     };
 
-    Callable& callable_;
+    Callable* _callable;
 
 public:
+    Function(Function const&) = delete;
+    Function& operator=(Function const&) = delete;
+
+
     template<typename T>
-    Function(T t) requires (IsCallableAndReturns<T, ReturnType, Args...>)
-        : callable_(*(new CallableT<T>(t)))
+    inline Function(T&& t) requires (IsCallableAndReturns<T, ReturnType, Args...>)
+        : _callable(new CallableT<T>(t))
     {}
 
-    Function(Function<ReturnType(Args...)> const&) = delete;
-    Function operator=(Function<ReturnType(Args...) const&>) = delete;
+    constexpr inline Function(Function&& other)
+        : _callable(other._callable)
+    {
+        other._callable = nullptr;
+    }
 
-    ~Function() { delete &callable_; }
+    inline ~Function()
+    {
+        if (_callable) {
+            delete _callable;
+        }
+    }
 
 
 
@@ -2124,7 +2138,7 @@ public:
 
 
 
-    ReturnType operator()(Args... args) const { return callable_.invoke(args...); }
+    ReturnType operator()(Args... args) const { return _callable->invoke(args...); }
 };
 
 
@@ -2173,7 +2187,7 @@ struct Functions
     template<typename T>
     struct Cast
     {
-# 173 "./include/commons/core/function.hh"
+# 187 "./include/commons/core/function.hh"
         template<long N>
         struct FromNthT
         {
@@ -2688,7 +2702,7 @@ public:
 
 
     template<typename T>
-    static consteval Class make(char const* name)
+    static consteval Class init(char const* name)
     {
         Class result{};
         result.name = name;
@@ -2733,16 +2747,16 @@ public:
 
 
     template<unsigned... Idxs>
-    struct _name_buffer
+    struct NameBuffer
     {
-        consteval _name_buffer(auto... args)
+        consteval NameBuffer(auto... args)
             : data{args...}
         {}
         char data[sizeof...(Idxs) + 1];
     };
 
     template<typename T>
-    static consteval auto _get_name_buffer()
+    static consteval auto _getNameBuffer()
     {
 
 
@@ -2753,36 +2767,36 @@ public:
 # 145 "./include/commons/core/class.hh"
 #pragma clang diagnostic push
 # 145 "./include/commons/core/class.hh"
-                                         {}
+                                        ;
 #pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
 # 146 "./include/commons/core/class.hh"
-                                                                      {}
-        auto _to_name_buffer = []<size_t... Idxs>(char const* str, IntegerSequence<size_t, Idxs...>) consteval {
-            return _name_buffer<Idxs...>(str[Idxs]..., '\0');
+                                                                     ;
+        auto toNameBuffer = []<size_t... Idxs>(char const* str, IntegerSequence<size_t, Idxs...>) consteval {
+            return NameBuffer<Idxs...>(str[Idxs]..., '\0');
         };
 
-        return _to_name_buffer(
+        return toNameBuffer(
             (Ptr::findSubstring(function, prefix) + (sizeof(prefix) - 1)),
             MakeIntegerSequence<
                 size_t, (Ptr::findSubstring(function, suffix) -
                          (Ptr::findSubstring(function, prefix) + (sizeof(prefix) - 1)))>{});
 #pragma clang diagnostic pop
 # 156 "./include/commons/core/class.hh"
-                                        {}
+                                       ;
     }
 } *ClassPtr, &ClassRef;
 
 
 template<typename T>
-struct ClassStorage
+struct ClassData
 {
-    constexpr static auto _name_buffer = Class::_get_name_buffer<T>();
-    constexpr static char const* name = _name_buffer.data;
-    constexpr static auto c = Class::make<T>(name);
+    constexpr static auto nameBuffer = Class::_getNameBuffer<T>();
+    constexpr static char const* name = nameBuffer.data;
+    constexpr static auto class_ = Class::init<T>(name);
 };
 
 template<typename T>
-constexpr Class const& ClassOf = ClassStorage<T>::c;
+constexpr Class const& ClassOf = ClassData<T>::class_;
 
 
 }
@@ -7218,6 +7232,39 @@ constexpr inline void PrintableT<T>::output(String& result) const
 }
 
 
+template<usize N>
+struct FormatLiteral
+{
+    char fmt[N];
+
+
+    constexpr inline FormatLiteral(char const (&str)[N])
+    {
+        for (usize i = 0; i < N; ++i)
+            fmt[i] = str[i];
+    }
+
+    constexpr inline usize size() const { return N - 1; }
+
+
+    template<typename... Args>
+    inline String operator()(Args&&... args) const
+    {
+
+        return String::fmt(fmt, Forward<Args>(args)...);
+    }
+};
+
+template<usize N>
+FormatLiteral(char const (&str)[N]) -> FormatLiteral<N>;
+
+template<FormatLiteral L>
+constexpr inline auto operator""_fmt()
+{
+    return L;
+}
+
+
 
 
 }
@@ -7750,7 +7797,8 @@ namespace cm {
 
 
 
-class OutStream {
+template<typename Derived>
+class IOutStream {
 public:
     using Status = StreamStatus;
 
@@ -7766,22 +7814,25 @@ public:
         "\n";
 
 
-    virtual ~OutStream() = default;
-    constexpr OutStream() = default;
-    constexpr OutStream(OutStream const&) = default;
-    constexpr OutStream& operator=(OutStream const&) = default;
+    constexpr ~IOutStream() = default;
+    constexpr IOutStream() = default;
+    constexpr IOutStream(IOutStream const&) = default;
+    constexpr IOutStream& operator=(IOutStream const&) = default;
 
 
 
 
 
 
-    virtual OutStream& writeBytes(void const* data, size_t sizeBytes) = 0;
+    inline Derived& writeBytes(void const* data, size_t sizeBytes)
+    {
+        return static_cast<Derived&>(*this).writeBytes(data, sizeBytes);
+    }
 
 
 
 
-    virtual OutStream& flush() = 0;
+    inline Derived& flush() { return static_cast<Derived&>(*this).flush(); }
 
 
 
@@ -7789,18 +7840,18 @@ public:
 
 
 
-    inline virtual Result<Status, Status> close() { return Ok(STATUS_OK); }
+    inline Result<Status, Status> close() { return static_cast<Derived&>(*this)->close(); }
 
 
 
 
-    inline virtual Status status() const { return STATUS_OK; }
+    inline Status status() const { return static_cast<Derived&>(*this)->status(); }
 
 
 
 
     inline bool ok() { return status() == STATUS_OK; }
-# 81 "./include/commons/system/outstream.inl"
+# 85 "./include/commons/system/outstream.inl"
     inline void print(auto const& value)
     {
         _print('`', ArrayRef<RefWrapper<Printable const>>{RefWrapper<Printable const>(PrintableT(value))});
@@ -7886,21 +7937,20 @@ namespace cm {
 
 
 
-struct StringStream : public OutStream
+struct StringStream : public IOutStream<StringStream>
 {
     StringStream() = delete;
     StringStream(String& to)
         : _to(to)
     {}
-    ~StringStream() override = default;
 
-    virtual OutStream& writeBytes(void const* data, usize sizeBytes) override
+    inline StringStream& writeBytes(void const* data, usize sizeBytes)
     {
         _to.insert(_to.length(), String(static_cast<char const*>(data), sizeBytes));
         return *this;
     }
 
-    virtual OutStream& flush() override { return *this; }
+    inline StringStream& flush() { return *this; }
 
 private:
     String& _to;
@@ -8682,23 +8732,25 @@ static inline int linux_is_error_result(u32 result)
 # 47 "./include/commons/system.hh" 2
 # 1 "./include/commons/system/linux/linuxstdout.inl" 1
 # 21 "./include/commons/system/linux/linuxstdout.inl"
-class LinuxStandardOutStream : public OutStream {
-private:
+class LinuxStandardOutStream : public IOutStream<LinuxStandardOutStream> {
+protected:
     bool _state;
+    int _fd = 1;
 
 public:
-    LinuxStandardOutStream() = default;
-    ~LinuxStandardOutStream() override = default;
-    constexpr LinuxStandardOutStream(LinuxStandardOutStream const&) = default;
-    constexpr LinuxStandardOutStream& operator=(LinuxStandardOutStream const&) = default;
+    constexpr inline LinuxStandardOutStream() = default;
+    constexpr inline ~LinuxStandardOutStream() = default;
+    constexpr inline LinuxStandardOutStream(LinuxStandardOutStream const&) = default;
+    constexpr inline LinuxStandardOutStream& operator=(LinuxStandardOutStream const&) = default;
 
 
-    virtual OutStream& writeBytes(void const* data, size_t sizeBytes) override
+    LinuxStandardOutStream& writeBytes(void const* data, size_t sizeBytes)
     {
-        int fd = _fd();
+        if (_fd != 1 && _fd != 2) {
+            _fd = 2;
+        }
 
-
-        auto r = ssize_t(LinuxSyscall(LinuxSyscall.write, usize(fd), usize(data), usize(sizeBytes)));
+        auto r = ssize_t(LinuxSyscall(LinuxSyscall.write, usize(_fd), usize(data), usize(sizeBytes)));
 
         if (r < 0) {
             _state = STATUS_FAILED_FLUSH;
@@ -8710,17 +8762,16 @@ public:
         }
         return *this;
     }
-    virtual OutStream& flush() override { return *this; }
 
-protected:
-    virtual int _fd() const { return 1; }
+    constexpr inline LinuxStandardOutStream& flush() { return *this; }
 };
 
 
 
 
 class LinuxStandardErrOutStream final : public LinuxStandardOutStream {
-    int _fd() const override { return 2; }
+public:
+    constexpr inline LinuxStandardErrOutStream() { this->_fd = 2; }
 };
 
 
@@ -8737,7 +8788,7 @@ inline Optional<LinuxStandardErrOutStream> const stderr = LinuxStandardErrOutStr
 # 48 "./include/commons/system.hh" 2
 # 1 "./include/commons/system/linux/linuxfileout.inl" 1
 # 21 "./include/commons/system/linux/linuxfileout.inl"
-struct LinuxFileOutStream final : public OutStream, public NonCopyable
+struct LinuxFileOutStream final : public IOutStream<LinuxFileOutStream>, public NonCopyable
 {
     constexpr LinuxFileOutStream(LinuxFileOutStream&& other) = default;
     constexpr LinuxFileOutStream& operator=(LinuxFileOutStream&& other) = default;
@@ -8812,7 +8863,8 @@ struct LinuxFileOutStream final : public OutStream, public NonCopyable
 
 
 
-    inline ~LinuxFileOutStream() override
+    [[clang::noinline]]
+    inline ~LinuxFileOutStream()
     {
         if (_fd < 3) {
             return;
@@ -8825,7 +8877,8 @@ struct LinuxFileOutStream final : public OutStream, public NonCopyable
 
 
 
-    virtual OutStream& writeBytes(void const* data, size_t sizeBytes) override
+    [[clang::noinline]]
+    inline LinuxFileOutStream& writeBytes(void const* data, size_t sizeBytes)
     {
 
         if (_bufferUsed + sizeBytes >= _buffer.length()) {
@@ -8845,13 +8898,13 @@ struct LinuxFileOutStream final : public OutStream, public NonCopyable
         }
 
 #pragma GCC diagnostic push
-# 135 "./include/commons/system/linux/linuxfileout.inl"
+# 137 "./include/commons/system/linux/linuxfileout.inl"
 #pragma GCC diagnostic ignored "-Wunsafe-buffer-usage"
-# 135 "./include/commons/system/linux/linuxfileout.inl"
+# 137 "./include/commons/system/linux/linuxfileout.inl"
         __builtin_memcpy(_buffer.data() + _bufferUsed, data, sizeBytes)
-# 135 "./include/commons/system/linux/linuxfileout.inl"
+# 137 "./include/commons/system/linux/linuxfileout.inl"
 #pragma GCC diagnostic pop
-# 135 "./include/commons/system/linux/linuxfileout.inl"
+# 137 "./include/commons/system/linux/linuxfileout.inl"
                                                                                ;
         _bufferUsed += sizeBytes;
         return *this;
@@ -8878,7 +8931,7 @@ struct LinuxFileOutStream final : public OutStream, public NonCopyable
     };
 
 
-    virtual OutStream& flush() override
+    LinuxFileOutStream& flush()
     {
         (void)doWrite(_buffer.data(), _bufferUsed);
         return *this;
@@ -8887,7 +8940,7 @@ struct LinuxFileOutStream final : public OutStream, public NonCopyable
 
 
 
-    inline virtual Result<Status, Status> close() override
+    inline Result<Status, Status> close()
     {
         auto result = isize(LinuxSyscall(LinuxSyscall.close, usize(_fd)));
         if (result < 0) {
@@ -8902,7 +8955,7 @@ struct LinuxFileOutStream final : public OutStream, public NonCopyable
 
 
 
-    Status status() const override { return _status; }
+    Status status() const { return _status; }
 };
 
 
@@ -8934,7 +8987,7 @@ struct LinuxShell : NonCopyable
     constexpr ~LinuxShell() noexcept = default;
 
 
-    inline int execute(String const& command, Optional<OutStream*> const& output)
+    inline int execute(String const& command, Optional<Function<void(void const*, usize)>> output = None)
     {
 
         auto s = _escapeCommand(command);
@@ -8943,10 +8996,10 @@ struct LinuxShell : NonCopyable
         if (fp == nullptr) {
             return -1;
         }
-        if (output != None) {
+        if (output.hasValue()) {
             for (int value = fgetc(fp); value != (-1); value = fgetc(fp)) {
                 auto byte = char(value);
-                output.value()->writeBytes(&byte, 1);
+                output.value()(&byte, 1);
             }
         }
         return pclose(fp);

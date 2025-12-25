@@ -26,7 +26,7 @@ struct LinuxShell : NonCopyable
     constexpr ~LinuxShell() noexcept = default;
 
 
-    inline int execute(String const& command, Optional<OutStream*> const& output)
+    inline int execute(String const& command, Optional<Function<void(void const*, usize)>> output = None)
     {
         //__builtin_printf("Command is this: %s\n", command.cstr());
         auto s = _escapeCommand(command);
@@ -35,10 +35,10 @@ struct LinuxShell : NonCopyable
         if (fp == nullptr) {
             return -1;  // TODO
         }
-        if (output != None) {
+        if (output.hasValue()) {
             for (int value = fgetc(fp); value != EOF; value = fgetc(fp)) {
                 auto byte = char(value);
-                output.value()->writeBytes(&byte, 1);
+                output.value()(&byte, 1);
             }
         }
         return pclose(fp);

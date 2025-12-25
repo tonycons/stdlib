@@ -318,6 +318,39 @@ constexpr inline void PrintableT<T>::output(String& result) const
 }
 
 
+template<usize N>
+struct FormatLiteral
+{
+    char fmt[N];
+
+    // Constructor to capture the string literal into the struct
+    constexpr inline FormatLiteral(char const (&str)[N])
+    {
+        for (usize i = 0; i < N; ++i)
+            fmt[i] = str[i];
+    }
+
+    constexpr inline usize size() const { return N - 1; }
+
+    // Use a variadic operator() to handle formatting arguments
+    template<typename... Args>
+    inline String operator()(Args&&... args) const
+    {
+        // Replace with your String::fmt logic
+        return String::fmt(fmt, Forward<Args>(args)...);
+    }
+};
+
+template<usize N>
+FormatLiteral(char const (&str)[N]) -> FormatLiteral<N>;
+
+template<FormatLiteral L>
+constexpr inline auto operator""_fmt()
+{
+    return L;
+}
+
+
 // static_assert(IsDerivedFrom<Array<char>, String>);
 
 }  // namespace cm

@@ -29,30 +29,36 @@ class CFunction;
 /// Unlike Function, it can't keep a pointer to a lambda function that has captures.
 ///
 template<typename ReturnType_, typename... Args>
-class CFunction<ReturnType_(Args...)> {
+class CFunction<ReturnType_(Args...)> : IEquatable<CFunction<ReturnType_(Args...)>> {
 public:
     using ReturnType = ReturnType_;
     using PtrType = ReturnType (*)(Args...);
 
-    constexpr CFunction()
+    constexpr inline CFunction(CFunction const&) = default;
+    constexpr inline CFunction& operator=(CFunction const&) = default;
+    constexpr inline CFunction(CFunction&&) = default;
+    constexpr inline CFunction& operator=(CFunction&&) = default;
+
+    constexpr inline CFunction()
         : _func(nullptr)
     {}
 
-    constexpr CFunction(ReturnType (*funcPtr)(Args...))
+    constexpr inline CFunction(ReturnType (*funcPtr)(Args...))
         : _func(funcPtr)
     {}
 
-    constexpr CFunction& operator=(ReturnType (*funcPtr)(Args...))
+    constexpr inline CFunction& operator=(ReturnType (*funcPtr)(Args...))
     {
         _func = funcPtr;
         return *this;
     }
 
-    constexpr ReturnType operator()(Args... args) const { return _func(args...); }
+    constexpr inline bool equals(CFunction const& other) const { return _func == other._func; }
+    constexpr inline bool equals(ReturnType (*funcPtr)(Args...)) const { return _func == funcPtr; }
 
-    constexpr operator bool() const { return _func != nullptr; }
-
-    constexpr operator PtrType() const { return _func; }
+    constexpr inline ReturnType operator()(Args... args) const { return _func(args...); }
+    constexpr inline operator bool() const { return _func != nullptr; }
+    constexpr inline operator PtrType() const { return _func; }
 
 private:
     ReturnType (*_func)(Args...);
@@ -78,33 +84,41 @@ private:
     };
 
     template<typename T>
-    struct CallableT : public Callable
-    {
-    private:
+    class CallableT : public Callable {
         T t_;
 
     public:
         CallableT(T const& t)
             : t_(t)
         {}
-
         ~CallableT() override = default;
-
         ReturnType invoke(Args... args) override { return t_(args...); }
     };
 
-    Callable& callable_;
+    Callable* _callable;
 
 public:
+    Function(Function const&) = delete;
+    Function& operator=(Function const&) = delete;
+
+
     template<typename T>
-    Function(T t) requires (IsCallableAndReturns<T, ReturnType, Args...>)
-        : callable_(*(new CallableT<T>(t)))
+    inline Function(T&& t) requires (IsCallableAndReturns<T, ReturnType, Args...>)
+        : _callable(new CallableT<T>(t))
     {}
 
-    Function(Function<ReturnType(Args...)> const&) = delete;
-    Function operator=(Function<ReturnType(Args...) const&>) = delete;
+    constexpr inline Function(Function&& other)
+        : _callable(other._callable)
+    {
+        other._callable = nullptr;
+    }
 
-    ~Function() { delete &callable_; }
+    inline ~Function()
+    {
+        if (_callable) {
+            delete _callable;
+        }
+    }
 
     // template<typename T>
     // Function& operator=(T t) {
@@ -112,7 +126,7 @@ public:
     //     return *this;
     // }
 
-    ReturnType operator()(Args... args) const { return callable_.invoke(args...); }
+    ReturnType operator()(Args... args) const { return _callable->invoke(args...); }
 };
 
 

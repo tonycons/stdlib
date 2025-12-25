@@ -18,23 +18,25 @@
 ///
 /// Linux implementation for a stream that writes to standard output
 ///
-class LinuxStandardOutStream : public OutStream {
-private:
+class LinuxStandardOutStream : public IOutStream<LinuxStandardOutStream> {
+protected:
     bool _state;
+    int _fd = 1;
 
 public:
-    LinuxStandardOutStream() = default;
-    ~LinuxStandardOutStream() override = default;
-    constexpr LinuxStandardOutStream(LinuxStandardOutStream const&) = default;
-    constexpr LinuxStandardOutStream& operator=(LinuxStandardOutStream const&) = default;
+    constexpr inline LinuxStandardOutStream() = default;
+    constexpr inline ~LinuxStandardOutStream() = default;
+    constexpr inline LinuxStandardOutStream(LinuxStandardOutStream const&) = default;
+    constexpr inline LinuxStandardOutStream& operator=(LinuxStandardOutStream const&) = default;
 
 
-    virtual OutStream& writeBytes(void const* data, size_t sizeBytes) override
+    LinuxStandardOutStream& writeBytes(void const* data, size_t sizeBytes)
     {
-        int fd = _fd();
-
+        if (_fd != 1 && _fd != 2) {
+            _fd = 2;
+        }
         // Assert(_buffer.sizeBytes() >= 0);
-        auto r = ssize_t(LinuxSyscall(LinuxSyscall.write, usize(fd), usize(data), usize(sizeBytes)));
+        auto r = ssize_t(LinuxSyscall(LinuxSyscall.write, usize(_fd), usize(data), usize(sizeBytes)));
 
         if (r < 0) {
             _state = STATUS_FAILED_FLUSH;
@@ -46,17 +48,16 @@ public:
         }
         return *this;
     }
-    virtual OutStream& flush() override { return *this; }
 
-protected:
-    virtual int _fd() const { return 1; }
+    constexpr inline LinuxStandardOutStream& flush() { return *this; }
 };
 
 ///
 /// Linux implementation for a stream that writes to standard error
 ///
 class LinuxStandardErrOutStream final : public LinuxStandardOutStream {
-    int _fd() const override { return 2; }
+public:
+    constexpr inline LinuxStandardErrOutStream() { this->_fd = 2; }
 };
 
 ///

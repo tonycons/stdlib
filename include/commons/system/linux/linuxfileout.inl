@@ -18,7 +18,7 @@
 ///
 /// Linux implementation for a stream that writes to a file
 ///
-struct LinuxFileOutStream final : public OutStream, public NonCopyable
+struct LinuxFileOutStream final : public IOutStream<LinuxFileOutStream>, public NonCopyable
 {
     constexpr LinuxFileOutStream(LinuxFileOutStream&& other) = default;
     constexpr LinuxFileOutStream& operator=(LinuxFileOutStream&& other) = default;
@@ -100,7 +100,8 @@ struct LinuxFileOutStream final : public OutStream, public NonCopyable
     ///
     /// Destructor
     ///
-    inline ~LinuxFileOutStream() override
+    [[clang::noinline]]
+    inline ~LinuxFileOutStream()
     {
         if (_fd < 3) {
             return;
@@ -113,7 +114,8 @@ struct LinuxFileOutStream final : public OutStream, public NonCopyable
 
     ///
     ///
-    virtual OutStream& writeBytes(void const* data, size_t sizeBytes) override
+    [[clang::noinline]]
+    inline LinuxFileOutStream& writeBytes(void const* data, size_t sizeBytes)
     {
         // If the buffer will overflow after writing this data, then write to the file and clear the buffer
         if (_bufferUsed + sizeBytes >= _buffer.length()) {
@@ -158,7 +160,7 @@ struct LinuxFileOutStream final : public OutStream, public NonCopyable
     };
 
     ///
-    virtual OutStream& flush() override
+    LinuxFileOutStream& flush()
     {
         (void)doWrite(_buffer.data(), _bufferUsed);
         return *this;
@@ -167,7 +169,7 @@ struct LinuxFileOutStream final : public OutStream, public NonCopyable
     ///
     /// Closes the file descriptor.
     ///
-    inline virtual Result<Status, Status> close() override
+    inline Result<Status, Status> close()
     {
         auto result = isize(LinuxSyscall(LinuxSyscall.close, usize(_fd)));
         if (result < 0) {
@@ -182,7 +184,7 @@ struct LinuxFileOutStream final : public OutStream, public NonCopyable
     ///
     /// Returns the status
     ///
-    Status status() const override { return _status; }
+    Status status() const { return _status; }
 };
 
 ///

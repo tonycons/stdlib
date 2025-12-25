@@ -20,21 +20,20 @@ namespace cm {
 ///
 /// Defines a stream that just writes to some string
 ///
-struct StringStream : public OutStream
+struct StringStream : public IOutStream<StringStream>
 {
     StringStream() = delete;
     StringStream(String& to)
         : _to(to)
     {}
-    ~StringStream() override = default;
 
-    virtual OutStream& writeBytes(void const* data, usize sizeBytes) override
+    inline StringStream& writeBytes(void const* data, usize sizeBytes)
     {
         _to.insert(_to.length(), String(static_cast<char const*>(data), sizeBytes));
         return *this;
     }
 
-    virtual OutStream& flush() override { return *this; }
+    inline StringStream& flush() { return *this; }
 
 private:
     String& _to;
