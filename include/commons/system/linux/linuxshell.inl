@@ -20,9 +20,9 @@
 
 struct LinuxShell : NonCopyable
 {
-    constexpr LinuxShell() noexcept = default;
-    constexpr LinuxShell(LinuxShell&&) noexcept = default;
-    constexpr LinuxShell& operator=(LinuxShell&&) noexcept = default;
+    consteval LinuxShell() noexcept = default;
+    consteval LinuxShell(LinuxShell&&) noexcept = default;
+    consteval LinuxShell& operator=(LinuxShell&&) noexcept = default;
     constexpr ~LinuxShell() noexcept = default;
 
 
