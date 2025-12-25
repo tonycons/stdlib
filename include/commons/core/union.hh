@@ -398,14 +398,15 @@ public:
     {
         using Init = decltype(TryInit<0, GivenType, Types...>::next(_data, Forward<GivenType>(t1)));
         auto newTag = static_cast<unsigned char>(Init::Tag);
+
+        if constexpr (hasNonTrivialDestructor()) {
+            Metadata::_dtor(_data);
+        }
+        TryInit<0, GivenType, Types...>::next(_data, Forward<GivenType>(t1));
         if (_tag != newTag) {
-            if constexpr (hasNonTrivialDestructor()) {
-                Metadata::_dtor(_data);
-            }
-            _tag = newTag;
-            TryInit<0, GivenType, Types...>::next(_data, Forward<GivenType>(t1));
             storeCallbacksFor<typename Init::WhichOne>();
         }
+        _tag = newTag;
         return *this;
     }
 
