@@ -271,11 +271,19 @@ struct CPU
 
 } inline constexpr CPU;
 
+
+struct ForceTriviallyRelocatable
+{};
+
+
+struct PairBase
+{};
+
 ///
 /// A basic pair structure.
 ///
 template<typename A, typename B>
-struct Pair
+struct Pair : PairBase
 {
     A first;
     B second;
@@ -371,8 +379,9 @@ concept HasOutputStringMethod = requires (T value) {
     };
 };
 
-constexpr void __outputString(auto const&, auto const&);
-
+namespace impl {
+constexpr void outputStringForPrimitiveType(auto const&, auto const&);
+}
 
 template<typename T>
 constexpr void OutputString(T const& value, auto const& out)
@@ -380,7 +389,7 @@ constexpr void OutputString(T const& value, auto const& out)
     if constexpr (HasOutputStringMethod<T>) {
         T::outputString(value, out);
     } else {
-        __outputString(value, out);
+        impl::outputStringForPrimitiveType(value, out);
     }
 }
 }  // namespace cm

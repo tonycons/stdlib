@@ -59,6 +59,13 @@ struct Double
     /// Returns the sign of a double
     FORCEINLINE constexpr static int signum(double x) { return signbit(x) == 1 ? -1 : 1; }
 
+    ///
+    /// Absolute value
+    ///
+    FORCEINLINE constexpr static double abs(double x)
+    {
+        return bit_cast<double>(bit_cast<u64>(x) & 0x7fff'ffff'ffff'ffff);
+    }
 
     ///
     /// Returns true if double is NaN
@@ -77,6 +84,16 @@ struct Double
         auto u = bit_cast<u64>(x);
         return (static_cast<u32>(u >> 32) & 0x7fffffff) == 0x7ff00000 && static_cast<u32>(u) == 0;
     }
+
+    ///
+    /// Returns true if a double is not a finite number (is some inf or nan)
+    ///
+    FORCEINLINE constexpr static bool isNotFinite(double x) { return bit_cast<u64>(abs(x)) >= 0x7FF0000000000000; }
+
+    ///
+    /// Returns true if a double is a finite number
+    ///
+    FORCEINLINE constexpr static bool isFinite(double x) { return bit_cast<u64>(abs(x)) < 0x7FF0000000000000; }
 
     //
     FORCEINLINE constexpr static double fma(double x, double y, double z)
@@ -127,7 +144,6 @@ struct Double
         }
     }
 
-
     constexpr static double pow(double x, int n)
     {
         double r = 1.0;
@@ -154,19 +170,10 @@ struct Double
         return y < 0 ? 1.0 / r : r;
     }
 
-
-    constexpr static auto frexp_v2_finite_nonzero(double value) -> Tuple<double, int>
+    constexpr static auto frexp(double value) -> Tuple<double, int>
     {
-        u64 const bits = __builtin_bit_cast(u64, value);
-        int const expon = ((bits >> 52) & 0x7FF) - 1022;
-        u64 const final_bits = (bits & 0x800fffff'ffffffff) | 0x3fe0000000000000;
-        return {__builtin_bit_cast(double, final_bits), expon};
-    }
-
-    constexpr static auto frexp_v2(double value) -> Tuple<double, int>
-    {
-        u64 const bits = __builtin_bit_cast(u64, value);
-        bool const isNotFiniteOrIsZero = (bits >= 0x7FF0000000000000 || bits == 0);
+        u64 const bits = bit_cast<u64>(value);
+        bool const isNotFiniteOrIsZero = (isFinite(value) || bits == 0);
 
         int const expon = (((bits >> 52) & 0x7FF) - 1022) * !isNotFiniteOrIsZero;
         u64 const finalBits = (bits & 0x800fffff'ffffffff) | 0x3fe0000000000000;
@@ -179,22 +186,29 @@ struct Double
         return {result, expon};
     }
 
+    constexpr static auto frexpFiniteNonzero(double value) -> Tuple<double, int>
+    {
+        u64 const bits = __builtin_bit_cast(u64, value);
+        int const expon = ((bits >> 52) & 0x7FF) - 1022;
+        u64 const final_bits = (bits & 0x800fffff'ffffffff) | 0x3fe0000000000000;
+        return {__builtin_bit_cast(double, final_bits), expon};
+    }
+
     ///
     /// Calculates the base 2 logarithm, accurate to at least 50 bits.
     /// From https://github.com/emjay2k/Approximations/blob/master/logapprox.h#L195
     ///
     constexpr static double log2(double value)
     {
-        using T = double;
-        constexpr double a = 1.000000000000000000000e+00L, b = 1.251649209001242901707e+01L,
-                         c = 2.046583854860732643033e+01L, d = -1.097536826489419503616e+01L,
-                         e = -1.881965876655596403566e+01L, f = -4.046684236630626152476e+00L,
-                         g = -1.406193705389736370304e-01L, h = 1.518692933639071429575e-01L,
-                         i = 3.897795033656223484542e+00L, j = 1.728188727732104723600e+01L,
-                         k = 2.168720176727976678421e+01L, l = 8.568477446142038544963e+00L,
-                         m = 9.581795852523320444760e-01L, n = 1.851054408942580734032e-02L;
+        constexpr double  //
+            a = 1.000000000000000000000e+00L,
+            b = 1.251649209001242901707e+01L, c = 2.046583854860732643033e+01L, d = -1.097536826489419503616e+01L,
+            e = -1.881965876655596403566e+01L, f = -4.046684236630626152476e+00L, g = -1.406193705389736370304e-01L,
+            h = 1.518692933639071429575e-01L, i = 3.897795033656223484542e+00L, j = 1.728188727732104723600e+01L,
+            k = 2.168720176727976678421e+01L, l = 8.568477446142038544963e+00L, m = 9.581795852523320444760e-01L,
+            n = 1.851054408942580734032e-02L;
 
-        u64 mask = (__builtin_bit_cast(u64, value));
+        auto mask = bit_cast<u64>(value);
         if (mask >= 0x7FF0000000000000 || value <= 0.0) [[unlikely]] {
             if (value < 0.0) {
                 return -QNAN;
@@ -204,13 +218,15 @@ struct Double
                 return value;
             }
         }
-        auto [dM, iExp] = frexp_v2_finite_nonzero(value);
-        T dM2 = dM * dM;
-        T dM3 = dM * dM2;
-        T dM4 = dM2 * dM2;
-        T dM5 = dM2 * dM3;
-        T dM6 = dM3 * dM3;
-        T x = 1.0 / ((((h * dM6 + n) + (i * dM5 + m * dM)) + (j * dM4 + l * dM2)) + k * dM3);
+        auto stupid = frexpFiniteNonzero(value);
+        auto dM = stupid.template get<0>();
+        auto iExp = stupid.template get<1>();
+        auto dM2 = dM * dM;
+        auto dM3 = dM * dM2;
+        auto dM4 = dM2 * dM2;
+        auto dM5 = dM2 * dM3;
+        auto dM6 = dM3 * dM3;
+        auto x = 1.0 / ((((h * dM6 + n) + (i * dM5 + m * dM)) + (j * dM4 + l * dM2)) + k * dM3);
         return iExp + x * (((((a * dM6 + g) + (c * dM4 + d * dM3)) + b * dM5) + f * dM) + e * dM2);
     }
 
@@ -231,6 +247,11 @@ struct Double
     }
 
 } inline constexpr Double;
+
+static_assert(Double::isFinite(1.0) && Double::isFinite(-999.0));
+static_assert(
+    !Double::isFinite(Double::NEG_INF) && !Double::isFinite(Double::POS_INF) && !Double::isFinite(Double::QNAN));
+
 
 }  // namespace cm
 #endif

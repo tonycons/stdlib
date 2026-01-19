@@ -113,7 +113,7 @@ public:
     ///
     /// Constructors from initializer list
     ///
-    Array(std::initializer_list<T> const& v)
+    Array(::std::initializer_list<T> const& v)
     {
         if constexpr (L == ARRAY_LENGTH_UNSPECIFIED) {
             Base::_data = new T[v.size()];
@@ -370,7 +370,7 @@ public:
 
 
 template<typename T>
-Array(std::initializer_list<T> const&) -> Array<T, ARRAY_LENGTH_UNSPECIFIED>;
+Array(::std::initializer_list<T> const&) -> Array<T, ARRAY_LENGTH_UNSPECIFIED>;
 
 
 ///

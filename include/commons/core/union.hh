@@ -141,7 +141,36 @@ public:
 private:
     // the Nth type stored in the union
     UintRanged<sizeof...(Types)> _tag;
-    alignas(max(alignof(Types)...)) u8 _data[max(sizeof(Types)...)];
+    alignas(max(alignof(Types)...)) u8 _data[max(sizeof(Types)...)]{};
+
+
+    ///
+    ///
+    ///
+    template<typename T, typename V>
+    constexpr inline static void constructInPlace(u8* data, V&& value)
+    {
+        if constexpr (IsPrimitiveType<T>) {
+            if consteval {
+                struct dummy
+                {
+                    u8 bytes[sizeof(T)];
+                };
+
+                auto x = T(Forward<V>(value));
+                auto dummy = __builtin_bit_cast(struct dummy, x);
+                auto bytes = dummy.bytes;
+                for (usize i = 0; i < sizeof(x); i++) {
+                    data[i] = bytes[i];
+                }
+            } else {
+                new (data) T(Forward<V>(value));
+            }
+        } else {
+            new (data) T(Forward<V>(value));
+        }
+    }
+
 
     /// Implements the strong matching rule. Read the Union doc to know what this does.
     struct Strong
@@ -186,11 +215,11 @@ private:
     struct Initializer<matchFn, I, From, T1, Tn...>
     {
         template<typename V>
-        constexpr static auto match(void* data, V&& value)
+        constexpr static auto match(u8* data, V&& value)
         {
             static_assert(IsSame<CVRefRemoved<V>, CVRefRemoved<From>>);
             if constexpr (matchFn::template match<From, T1>()) {
-                new (data) T1(Forward<V>(value));
+                constructInPlace<T1>(data, Forward<V>(value));
                 return InitSuccess<T1, I>{};
             } else {
                 return Initializer<matchFn, I + 1, From, Tn...>::match(data, Forward<V>(value));
@@ -202,14 +231,11 @@ private:
     struct Initializer<matchFn, I, From, To>
     {
         template<typename V>
-        constexpr static auto match(void* data, V&& value)
+        constexpr static auto match(u8* data, V&& value)
         {
             static_assert(IsSame<CVRefRemoved<V>, CVRefRemoved<From>>);
             if constexpr (matchFn::template match<From, To>()) {
-                _Pragma("GCC diagnostic push");
-                _Pragma("GCC diagnostic ignored \"-Wsign-conversion\"");
-                new (data) To(Forward<V>(value));
-                _Pragma("GCC diagnostic pop");
+                constructInPlace<To>(data, Forward<V>(value));
                 return InitSuccess<To, I>{};
             } else {
                 return InitFailure{};
@@ -221,7 +247,7 @@ private:
     struct Initializer<matchFn, I, U>
     {
         template<typename V>
-        constexpr static auto match(void*, V&&)
+        constexpr static auto match(u8*, V&&)
         {
             return InitFailure{};
         }
@@ -235,7 +261,7 @@ private:
     struct TryInit
     {
         template<typename V>
-        constexpr static auto next(void* data, V&& value)
+        constexpr static auto next(u8* data, V&& value)
         {
             // attemps to initialize the union with the first type that is a strong match to value.
             if constexpr (IsSame<
@@ -336,8 +362,12 @@ public:
     {
         Metadata::_class = other._class;
         _tag = other._tag;
-        Assert(Metadata::_class->moveConstructor, "Type in union not move constructible");
-        Metadata::_class->moveConstructor(_data, other._data);
+        if (Metadata::_class->moveConstructor) {
+            Metadata::_class->moveConstructor(_data, other._data);
+        } else {
+            Assert(Metadata::_class->copyConstructor, "Type in union not move or copy constructible");
+            Metadata::_class->copyConstructor(_data, other._data);
+        }
     }
 
     ///
@@ -349,25 +379,31 @@ public:
     constexpr inline Union& operator=(Union&& other)
         requires (hasNonTrivialDestructor() || hasNonTrivialMoveAssignment() || hasNonTrivialMoveConstructor())
     {
-        if (_tag == other._tag) {  // if the type stored in this is the same type stored in other, call its copy
-                                   // assignment operator.
+        // if both unions store the same type
+        if (_tag == other._tag) {
+
+            // call its move assignment operator.
             if constexpr (hasNonTrivialMoveAssignment()) {
-                Assert(Metadata::_class->moveAssignOperator, "Type in union not move assignable");
-                Metadata::_class->moveAssignOperator(_data, other._data);
+                moveOrCopyAssignFrom(other);
             } else {
                 __builtin_memcpy_inline(_data, other._data, sizeof(_data));
             }
-        } else {  // otherwise, if other stores a different type, destroy the current type and call the copy constructor
+        } else {  // if other stores a different type
+
+            // destroy the current type
             if constexpr (hasNonTrivialDestructor()) {
                 Metadata::_class->destructor(_data);
             }
-            Metadata::_class = other._class;
+
+            // call move constructor
             if constexpr (hasNonTrivialMoveConstructor()) {
-                Assert(Metadata::_class->moveConstructor, "Type in union not move constructible");
-                Metadata::_class->moveConstructor(_data, other._data);
+                moveOrCopyConstructFrom(other);
             } else {
                 __builtin_memcpy_inline(_data, other._data, sizeof(_data));
             }
+
+            // change metadata
+            Metadata::_class = other._class;
             _tag = other._tag;
         }
         if constexpr (hasNonTrivialDestructor()) {
@@ -376,6 +412,28 @@ public:
         return *this;
     }
 
+private:
+    constexpr void moveOrCopyConstructFrom(auto&& other)
+    {
+        if (Metadata::_class->moveConstructor) {
+            Metadata::_class->moveConstructor(_data, other._data);
+        } else {
+            Assert(Metadata::_class->copyConstructor, "Type in union not move or copy constructible");
+            Metadata::_class->copyConstructor(_data, other._data);
+        }
+    }
+
+    constexpr void moveOrCopyAssignFrom(auto&& other)
+    {
+        if (Metadata::_class->moveAssignOperator) {
+            Metadata::_class->moveAssignOperator(_data, other._data);
+        } else {
+            Assert(Metadata::_class->copyAssignOperator, "Type in union not move or copy assignable");
+            Metadata::_class->copyAssignOperator(_data, other._data);
+        }
+    }
+
+public:
     ///
     /// Constructs the union from a specific type.
     ///
@@ -412,26 +470,24 @@ public:
     /// Returns true if the active type in the Union is the given type T
     ///
     template<typename T>
-    constexpr inline bool is() const noexcept
+    constexpr bool is() const noexcept
     {
         if constexpr (CopyConstructible<T>) {
-            auto const& k = (_ref<T>());
-            using Init = decltype(TryInit<0, T, Types...>::next(const_cast<u8*>(_data), k));
+            using Init = decltype(TryInit<0, T, Types...>::next(const_cast<u8*>(_data), declval<T const&>()));
             if constexpr (IsSame<Init, InitFailure>) {
                 return false;
             } else {
                 return _tag == Init::Tag;
             }
         } else if constexpr (MoveConstructible<T>) {
-            using Init = decltype(TryInit<0, T, Types...>::template next<T&&>(
-                const_cast<u8*>(_data), static_cast<T&&>(const_cast<T&>(_ref<T>()))));
+            using Init = decltype(TryInit<0, T, Types...>::next(const_cast<u8*>(_data), declval<T&&>()));
             if constexpr (IsSame<Init, InitFailure>) {
                 return false;
             } else {
                 return _tag == Init::Tag;
             }
         } else {
-            using Init = decltype(TryInit<0, T, Types...>::next(const_cast<u8*>(_data), (T(_ref<T>()))));
+            using Init = decltype(TryInit<0, T, Types...>::next(const_cast<u8*>(_data), declval<T>()));
             if constexpr (IsSame<Init, InitFailure>) {
                 return false;
             } else {
@@ -441,50 +497,70 @@ public:
     }
 
     ///
-    /// Unsafe-- effectively returns value of reinterpret_cast<T*>(union.data);
+    /// Returns a reference to the active type of the union as type T, expects you to have already checked that it is
+    /// type T. Due to the nature of the operation effectively performing a reinterpret_cast, this is not possible (yet)
+    /// to perform in a constant-evaluated context.
+    /// if !is<T>, get<T> will result in a CPU trap.
     ///
     template<typename T>
-    NODISCARD inline T const& _ref() const noexcept
+    inline auto& ref(this auto&& self) noexcept
     {
+        Assert(self.template is<T>());
+
         if constexpr (IsReference<T>) {
             using U = RefRemoved<T>;
-            T const& ref = **reinterpret_cast<U const* const*>(_data);
-            return ref;
+            if constexpr (IsConst<decltype(self)>) {
+                T const& ref = **reinterpret_cast<U const* const*>(self._data);
+                return ref;
+            } else {
+                T& ref = **reinterpret_cast<U**>(self._data);
+                return ref;
+            }
         } else {
-            T const& ref = *reinterpret_cast<T const*>(_data);
-            return ref;
+            if constexpr (IsConst<decltype(self)>) {
+                return *reinterpret_cast<T const*>(self._data);
+            } else {
+                return *reinterpret_cast<T*>(self._data);
+            }
         }
     }
+
+    ///
+    /// Returns a bitwise copy of the active type of the union as type T, expects you to have already checked that the
+    /// active type is type T. This is only possible to perform in a constant-evaluated context if the type
+    /// is trivially relocatable.
+    ///
     template<typename T>
-    NODISCARD inline T& _ref() noexcept
+    constexpr inline T val(this auto&& self) noexcept
     {
-        return const_cast<T&>(static_cast<Union const*>(this)->_ref<T>());
+        Assert(self.template is<T>());
+
+        if constexpr (IsTriviallyRelocatable<UnderlyingTypeOf<T>> || IsPrimitiveType<T>) {
+
+            struct
+            {
+                u8 bytes[sizeof(T)]{};
+            } dummy = {};
+
+            for (usize i = 0; i < sizeof(T); i++) {
+                dummy.bytes[i] = self._data[i];
+            }
+            return bit_cast<T>(dummy);
+        } else {
+            return *reinterpret_cast<T const*>(self._data);
+        }
     }
 
     ///
-    /// Gets the active type of the union as type T, expects you to have already checked that it is type T.
+    /// Returns a reference to the active type of the union as type T, otherwise, if the active type is not T, returns a
+    /// default value.
     ///
     template<typename T>
-    NODISCARD inline T const& get() const noexcept
+    [[nodiscard]]
+    inline auto& getOrDefault(this auto&& self, auto& defaultValue) noexcept
     {
-        Assert(is<T>());
-        return const_cast<ConstRemoved<decltype(_ref<T>())>>(_ref<T>());
-    }
-    template<typename T>
-    NODISCARD inline T& get() noexcept
-    {
-        return const_cast<T&>(static_cast<Union const*>(this)->get<T>());
-    }
-
-    ///
-    /// Gets the active type of the union as type T, otherwise, if the active type is not T, returns a default
-    /// value.
-    ///
-    template<typename T>
-    NODISCARD inline T const& getOrDefault(T const& defaultValue) const noexcept
-    {
-        if (is<T>()) {
-            return const_cast<ConstRemoved<decltype(_ref<T>())>>(_ref<T>());
+        if (self.template is<T>()) {
+            return self.template get<T>();
         } else {
             return defaultValue;
         }
@@ -504,7 +580,7 @@ public:
     {
         using T = FunctionTraits<decltype(func)>::template Arg<0>::Type;
         if (this->is<T>() || this->is<RefRemoved<T>>()) {
-            return func(this->get<T>());
+            return func(this->ref<T>());
         } else {
             return this->match(funcs...);
         }
@@ -514,7 +590,7 @@ public:
     {
         using T = FunctionTraits<decltype(func)>::template Arg<0>::Type;
         if (this->is<T>()) {
-            return func(this->get<T>());
+            return func(this->ref<T>());
         } else {
             __builtin_trap();
             __builtin_unreachable();
@@ -526,7 +602,7 @@ public:
     {
         using T = FunctionTraits<decltype(func)>::template Arg<0>::Type;
         if (this->is<T>()) {
-            return func(this->get<T>());
+            return func(this->ref<T>());
         } else {
             return this->matchOr<Default>(funcs...);
         }
@@ -537,7 +613,7 @@ public:
     {
         using T = FunctionTraits<decltype(func)>::template Arg<0>::Type;
         if (this->is<T>()) {
-            return func(this->get<T>());
+            return func(this->ref<T>());
         } else {
             if constexpr (IsFunction<decltype(Default)> || IsClass<decltype(Default)>) {
                 return Default();

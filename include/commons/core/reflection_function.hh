@@ -17,6 +17,8 @@
 #warning Do not include this file directly; include "core.hh" instead
 #else
 
+namespace cm {
+
 ///
 /// Provides static reflection on functions.
 ///
@@ -117,4 +119,7 @@ public:
     template<auto N>
     using Arg = Trait<FnType>::template Arg<N>;
 };
+
+}  // namespace cm
+
 #endif

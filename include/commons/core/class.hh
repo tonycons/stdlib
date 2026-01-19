@@ -86,7 +86,7 @@ public:
         };
         if constexpr (DefaultConstructible<T>) {
             result.defaultConstructor = [](void* ptr) -> void {
-                new (ptr) T();
+                new (ptr) T;
             };
         }
         if constexpr (CopyConstructible<T>) {

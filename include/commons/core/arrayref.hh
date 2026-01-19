@@ -70,7 +70,7 @@ public:
     /// Use of the above will issue a warning.
     ///
     [[clang::return_typestate(consumed)]]
-    constexpr inline ArrayRef([[clang::lifetimebound]] std::initializer_list<T> const& v) noexcept
+    constexpr inline ArrayRef([[clang::lifetimebound]] ::std::initializer_list<T> const& v) noexcept
         : _ptr(const_cast<T*>(v.begin())), _length(v.size())
     {}
 
@@ -136,10 +136,6 @@ public:
     ///
     constexpr inline T const* data() const noexcept { return _ptr; }
 
-    /// Returns a pointer to the array data
-    /// NODISCARD FORCEINLINE constexpr T* data() noexcept { return _ptr; }
-
-
     ///
     /// Performs a deep equality comparison of two arrays.
     ///
@@ -150,6 +146,12 @@ public:
         } else {
             // At runtime, select the C library memcmp if possible, which is highly optimized.
             if constexpr (IsPrimitiveData<T>) {
+                if (&self == &other) {
+                    return true;
+                }
+                if (self.length() != other.length()) {
+                    return false;
+                }
                 UNSAFE_BEGIN;
                 return __builtin_memcmp(self.data(), other.data(), self.sizeBytes()) == 0;
                 UNSAFE_END;
@@ -188,7 +190,7 @@ template<typename T>
 ArrayRef(T*, size_t) -> ArrayRef<T>;
 
 template<typename T>
-ArrayRef(std::initializer_list<T>&&) -> ArrayRef<T>;
+ArrayRef(::std::initializer_list<T>&&) -> ArrayRef<T>;
 
 template<typename T, unsigned N>
 ArrayRef(T const (&literal)[N]) -> ArrayRef<T>;

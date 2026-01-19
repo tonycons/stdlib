@@ -44,7 +44,7 @@ struct Map
 
     void put(K const& key, V const& value)
     {
-        u32 keyHash = _hashFunc(key);
+        u64 keyHash = u64(u32(_hashFunc(key)));
         u64 index = u64(keyHash) << 32;
 
         for (u32 j = 0; j < MAX_VALUE<u32>; j++) {
@@ -58,7 +58,7 @@ struct Map
         }
     }
 
-    Optional<V&> get(K const& key)
+    Optional<V*> get(K const& key)
     {
         u32 keyHash = _hashFunc(key);
         u64 index = u64(keyHash) << 32;
@@ -69,8 +69,8 @@ struct Map
 
             if (!entry.hasValue()) {
                 return None;
-            } else if (entry.hasValue() && key == entry.value().first) {
-                return entry.value().second;
+            } else if (entry.hasValue() && key == entry.ref().first) {
+                return const_cast<V*>(&entry.ref().second);
             }
         }
         return None;

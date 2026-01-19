@@ -38,7 +38,7 @@ struct LinuxShell : NonCopyable
         if (output.hasValue()) {
             for (int value = fgetc(fp); value != EOF; value = fgetc(fp)) {
                 auto byte = char(value);
-                output.value()(&byte, 1);
+                output.ref()(&byte, 1);
             }
         }
         return pclose(fp);

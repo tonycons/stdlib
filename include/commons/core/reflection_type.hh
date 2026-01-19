@@ -17,6 +17,8 @@
 #warning Do not include this file directly; include "core.hh" instead
 #else
 
+namespace cm {
+
 
 struct Nothing
 {};
@@ -49,6 +51,10 @@ template<typename T>
 struct TConstRemoved<T const&> { using Type = T&; };
 template<typename T>
 struct TConstRemoved<T const volatile&> { using Type = T volatile&; };
+template<typename T>
+struct TConstRemoved<T const&&> { using Type = T&&; };
+template<typename T>
+struct TConstRemoved<T const volatile&&> { using Type = T volatile&&; };
 template<typename T>
 struct TVolatileRemoved { using Type = T; };
 template<typename T>
@@ -430,7 +436,8 @@ concept TriviallyDestructible = IsPrimitiveType<T> || __is_trivially_destructibl
 /// pointer.
 ///
 template<typename T>
-concept IsTriviallyRelocatable = __builtin_is_cpp_trivially_relocatable(T);
+concept IsTriviallyRelocatable =
+    IsDerivedFrom<ForceTriviallyRelocatable, T> || __builtin_is_cpp_trivially_relocatable(T);
 
 template<typename T>
 concept Destructible = __is_destructible(T);
@@ -928,4 +935,7 @@ concept IsIterable = requires (T a) {
 
 
 // }  // namespace test
+
+}  // namespace cm
+
 #endif

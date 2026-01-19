@@ -37,8 +37,8 @@
 #include HEADER(datastructs/queue.hh)         // IWYU pragma: keep
 #include HEADER(datastructs/string.hh)        // IWYU pragma: keep
 #include HEADER(datastructs/linked_list.hh)   // IWYU pragma: keep
-#include HEADER(datastructs/sparse_array.hh)  // IWYU pragma: keep
-#include HEADER(datastructs/map.hh)           // IWYU pragma: keep
+#include HEADER(datastructs/fixed_map.hh)  // IWYU pragma: keep
+//#include HEADER(datastructs/map.hh)           // IWYU pragma: keep
 
 #undef __inline_core_header__
 

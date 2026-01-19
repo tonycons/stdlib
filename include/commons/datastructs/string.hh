@@ -177,8 +177,8 @@ public:
         usize baseIndex = 0;
         Optional<usize> index = None;
         while ((index = this->find(substr, baseIndex)) != None) {
-            erase(index.value(), substr.length());
-            insert(index.value(), replacement);
+            erase(index.ref(), substr.length());
+            insert(index.ref(), replacement);
             baseIndex += replacement.length();
         }
     }

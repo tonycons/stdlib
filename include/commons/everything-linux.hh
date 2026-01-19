@@ -130,10 +130,18 @@ struct CPU
 } inline constexpr CPU;
 
 
+struct ForceTriviallyRelocatable
+{};
+
+
+struct PairBase
+{};
+
+
 
 
 template<typename A, typename B>
-struct Pair
+struct Pair : PairBase
 {
     A first;
     B second;
@@ -229,8 +237,9 @@ concept HasOutputStringMethod = requires (T value) {
     };
 };
 
-constexpr void __outputString(auto const&, auto const&);
-
+namespace impl {
+constexpr void outputStringForPrimitiveType(auto const&, auto const&);
+}
 
 template<typename T>
 constexpr void OutputString(T const& value, auto const& out)
@@ -238,7 +247,7 @@ constexpr void OutputString(T const& value, auto const& out)
     if constexpr (HasOutputStringMethod<T>) {
         T::outputString(value, out);
     } else {
-        __outputString(value, out);
+        impl::outputStringForPrimitiveType(value, out);
     }
 }
 }
@@ -619,13 +628,16 @@ Range(T const&, T const&) -> Range<T>;
 }
 # 34 "./include/commons/core.hh" 2
 # 1 "./include/commons/core/reflection_type.hh" 1
-# 21 "./include/commons/core/reflection_type.hh"
+# 20 "./include/commons/core/reflection_type.hh"
+namespace cm {
+
+
 struct Nothing
 {};
 
 struct SafeBinaryMoveable
 {};
-# 38 "./include/commons/core/reflection_type.hh"
+# 40 "./include/commons/core/reflection_type.hh"
 template<typename T>
 struct TConstRemoved { using Type = T; };
 template<typename T>
@@ -640,6 +652,10 @@ template<typename T>
 struct TConstRemoved<T const&> { using Type = T&; };
 template<typename T>
 struct TConstRemoved<T const volatile&> { using Type = T volatile&; };
+template<typename T>
+struct TConstRemoved<T const&&> { using Type = T&&; };
+template<typename T>
+struct TConstRemoved<T const volatile&&> { using Type = T volatile&&; };
 template<typename T>
 struct TVolatileRemoved { using Type = T; };
 template<typename T>
@@ -672,7 +688,7 @@ template<typename T>
 struct TRValueRefRemoved { using Type = T; };
 template<typename T>
 struct TRValueRefRemoved<T&&> { using Type = T; };
-# 97 "./include/commons/core/reflection_type.hh"
+# 103 "./include/commons/core/reflection_type.hh"
 template<typename T>
 using ConstRemoved = typename TConstRemoved<T>::Type;
 
@@ -699,10 +715,10 @@ using RefOrPointerRemoved = typename TRefRemoved<typename TPointerRemoved<T>::Ty
 
 template<typename T>
 using RValueRefRemoved = typename TRValueRefRemoved<T>::Type;
-# 136 "./include/commons/core/reflection_type.hh"
+# 142 "./include/commons/core/reflection_type.hh"
 template<typename A, typename B>
 concept IsSame = __is_same(A, B);
-# 151 "./include/commons/core/reflection_type.hh"
+# 157 "./include/commons/core/reflection_type.hh"
 template<typename T, typename... A>
 concept IsSameAsOneOf = ((IsSame<T, A>) || ...);
 
@@ -732,7 +748,7 @@ concept IsVolatile = bool{!IsSame<T, VolatileRemoved<T>>};
 
 template<typename T>
 concept IsPointer = __is_pointer(T);
-# 197 "./include/commons/core/reflection_type.hh"
+# 203 "./include/commons/core/reflection_type.hh"
 static_assert(IsPointer<int volatile*>);
 static_assert(IsPointer<int***>);
 static_assert(IsPointer<int** const* const volatile>);
@@ -798,7 +814,7 @@ concept IsDerivedFrom = __is_base_of(Base, Derived);
 
 template<typename From, typename To>
 concept ConvertibleTo = __is_convertible(From, To);
-# 270 "./include/commons/core/reflection_type.hh"
+# 276 "./include/commons/core/reflection_type.hh"
 template<typename T>
 concept TypeIsBool = ConvertibleTo<T, bool>;
 
@@ -843,7 +859,7 @@ concept IsInteger = !IsBool<T> && __is_integral(UnderlyingTypeOf<T>);
 
 template<typename T>
 concept IsIntegerPrimitiveType = !IsBool<T> && __is_integral(T);
-# 327 "./include/commons/core/reflection_type.hh"
+# 333 "./include/commons/core/reflection_type.hh"
 static_assert(IsSame<decltype(0), int>);
 static_assert(IsSame<UnderlyingTypeOf<decltype(0)>, int>);
 static_assert(IsUnderlyingType<decltype(0), int>);
@@ -888,7 +904,7 @@ struct TSelectType<1, A, B>
 
 template<int index, typename A, typename B>
 using SelectType = typename TSelectType<index, A, B>::Type;
-# 383 "./include/commons/core/reflection_type.hh"
+# 389 "./include/commons/core/reflection_type.hh"
 template<typename T>
 concept DefaultConstructible = requires { T{}; };
 
@@ -930,9 +946,10 @@ concept TriviallyMoveAssignable = (IsPrimitiveType<T> && IsPrimitiveType<U>) || 
 
 template<typename T>
 concept TriviallyDestructible = IsPrimitiveType<T> || __is_trivially_destructible(T);
-# 432 "./include/commons/core/reflection_type.hh"
+# 438 "./include/commons/core/reflection_type.hh"
 template<typename T>
-concept IsTriviallyRelocatable = __builtin_is_cpp_trivially_relocatable(T);
+concept IsTriviallyRelocatable =
+    IsDerivedFrom<ForceTriviallyRelocatable, T> || __builtin_is_cpp_trivially_relocatable(T);
 
 template<typename T>
 concept Destructible = __is_destructible(T);
@@ -941,7 +958,7 @@ template<typename T, typename U>
 concept IsImplicitlyAssignable = requires (T& t, U const& u) {
     { t = u };
 };
-# 454 "./include/commons/core/reflection_type.hh"
+# 461 "./include/commons/core/reflection_type.hh"
 template<typename Func, typename... Args>
 concept IsCallableWith = requires (Func func, Args... args) {
     { func(args...) };
@@ -951,7 +968,7 @@ template<typename F, typename ReturnType, typename... Args>
 concept IsCallableAndReturns = requires (F f, Args... args) {
     { f(args...) } -> IsSame<ReturnType>;
 };
-# 475 "./include/commons/core/reflection_type.hh"
+# 482 "./include/commons/core/reflection_type.hh"
 template<typename T>
 concept IsPrefixIncrementable = requires (T a) {
     { ++a };
@@ -1108,7 +1125,7 @@ template<typename T>
 concept HasOperatorAdd = requires {
     { &T::operator+ };
 };
-# 642 "./include/commons/core/reflection_type.hh"
+# 649 "./include/commons/core/reflection_type.hh"
 template<typename T>
 concept IsPrimitiveData = bool{
     TriviallyDestructible<T> && TriviallyCopyConstructible<T> && TriviallyDefaultConstructible<T> &&
@@ -1283,6 +1300,8 @@ concept IsIterable = requires (T a) {
     { a.begin() } -> IsIterator;
     { a.end() } -> IsIterator;
 };
+# 939 "./include/commons/core/reflection_type.hh"
+}
 # 35 "./include/commons/core.hh" 2
 # 1 "./include/commons/core/comparable.hh" 1
 # 20 "./include/commons/core/comparable.hh"
@@ -1771,7 +1790,11 @@ constexpr auto For(Range<usize> const& range, auto* ptr, auto func)
 }
 # 38 "./include/commons/core.hh" 2
 # 1 "./include/commons/core/tuple.hh" 1
-# 22 "./include/commons/core/tuple.hh"
+# 20 "./include/commons/core/tuple.hh"
+namespace cm {
+
+
+
 template<typename T, T... Index>
 struct IntegerSequence
 {
@@ -1780,18 +1803,23 @@ struct IntegerSequence
 
 template<typename T, auto N>
 using MakeIntegerSequence = __make_integer_seq<IntegerSequence, T, N>;
-# 62 "./include/commons/core/tuple.hh"
+# 64 "./include/commons/core/tuple.hh"
 template<unsigned I, typename Item>
 struct TupleLeaf
 {
     Item value;
 };
 
+
+
+struct TupleBase
+{};
+
 template<unsigned I, typename... Items>
 struct TupleImpl;
 
 template<unsigned I>
-struct TupleImpl<I>
+struct TupleImpl<I> : TupleBase
 {};
 
 
@@ -1805,12 +1833,21 @@ protected:
     {}
 };
 
+template<typename... Args>
+struct Tuple;
+
+
 
 
 
 template<typename... Args>
 struct Tuple : TupleImpl<0, Args...>
 {
+    constexpr Tuple() = default;
+    constexpr Tuple(Tuple&&) = default;
+    constexpr Tuple(Tuple const&) = default;
+    constexpr Tuple& operator=(Tuple&&) = default;
+    constexpr Tuple& operator=(Tuple const&) = default;
 
 
 
@@ -1818,11 +1855,6 @@ struct Tuple : TupleImpl<0, Args...>
     constexpr Tuple(auto&&... args)
         : TupleImpl<0, Args...>{Forward<decltype(args)>(args)...}
     {}
-
-
-
-
-    constexpr Tuple(Tuple const&) = default;
 
 
 
@@ -1895,6 +1927,7 @@ public:
     using Element = GetType<0, N, Args...>::Type;
 };
 
+
 template<typename TupleT, unsigned N>
 struct GetTupleElement
 {
@@ -1904,6 +1937,13 @@ struct GetTupleElement
 template<typename TupleT, unsigned N>
 using TupleElement = typename GetTupleElement<TupleT, N>::Type;
 
+
+
+
+template<typename... Args>
+Tuple(Args&&... args) -> Tuple<Args...>;
+
+}
 
 namespace std {
 
@@ -1915,20 +1955,34 @@ struct tuple_element;
 
 
 template<typename... Args>
-struct tuple_size<::Tuple<Args...>>
+struct tuple_size<::cm::Tuple<Args...>>
 {
     constexpr static auto value = sizeof...(Args);
 };
 
 template<decltype(0uz) Index, typename... Args>
-struct tuple_element<Index, ::Tuple<Args...>>
+struct tuple_element<Index, ::cm::Tuple<Args...>>
 {
-    using type = TupleElement<::Tuple<Args...>, Index> const;
+    using type = ::cm::TupleElement<::cm::Tuple<Args...>, Index> const;
 };
+}
+
+namespace cm {
+
+template<typename T>
+concept IsTuple = IsDerivedFrom<TupleBase, RValueRefRemoved<CVRefRemoved<T>>>;
+
+
+
 }
 # 39 "./include/commons/core.hh" 2
 # 1 "./include/commons/core/reflection_function.hh" 1
-# 23 "./include/commons/core/reflection_function.hh"
+# 20 "./include/commons/core/reflection_function.hh"
+namespace cm {
+
+
+
+
 template<typename FnType>
 struct FunctionTraits
 {
@@ -2026,6 +2080,8 @@ public:
     template<auto N>
     using Arg = Trait<FnType>::template Arg<N>;
 };
+
+}
 # 40 "./include/commons/core.hh" 2
 # 1 "./include/commons/core/function.hh" 1
 # 20 "./include/commons/core/function.hh"
@@ -2719,7 +2775,7 @@ public:
         };
         if constexpr (DefaultConstructible<T>) {
             result.defaultConstructor = [](void* ptr) -> void {
-                new (ptr) T();
+                new (ptr) T;
             };
         }
         if constexpr (CopyConstructible<T>) {
@@ -2915,7 +2971,36 @@ public:
 private:
 
     UintRanged<sizeof...(Types)> _tag;
-    alignas(max(alignof(Types)...)) u8 _data[max(sizeof(Types)...)];
+    alignas(max(alignof(Types)...)) u8 _data[max(sizeof(Types)...)]{};
+
+
+
+
+
+    template<typename T, typename V>
+    constexpr inline static void constructInPlace(u8* data, V&& value)
+    {
+        if constexpr (IsPrimitiveType<T>) {
+            if consteval {
+                struct dummy
+                {
+                    u8 bytes[sizeof(T)];
+                };
+
+                auto x = T(Forward<V>(value));
+                auto dummy = __builtin_bit_cast(struct dummy, x);
+                auto bytes = dummy.bytes;
+                for (usize i = 0; i < sizeof(x); i++) {
+                    data[i] = bytes[i];
+                }
+            } else {
+                new (data) T(Forward<V>(value));
+            }
+        } else {
+            new (data) T(Forward<V>(value));
+        }
+    }
+
 
 
     struct Strong
@@ -2960,11 +3045,11 @@ private:
     struct Initializer<matchFn, I, From, T1, Tn...>
     {
         template<typename V>
-        constexpr static auto match(void* data, V&& value)
+        constexpr static auto match(u8* data, V&& value)
         {
             static_assert(IsSame<CVRefRemoved<V>, CVRefRemoved<From>>);
             if constexpr (matchFn::template match<From, T1>()) {
-                new (data) T1(Forward<V>(value));
+                constructInPlace<T1>(data, Forward<V>(value));
                 return InitSuccess<T1, I>{};
             } else {
                 return Initializer<matchFn, I + 1, From, Tn...>::match(data, Forward<V>(value));
@@ -2976,20 +3061,11 @@ private:
     struct Initializer<matchFn, I, From, To>
     {
         template<typename V>
-        constexpr static auto match(void* data, V&& value)
+        constexpr static auto match(u8* data, V&& value)
         {
             static_assert(IsSame<CVRefRemoved<V>, CVRefRemoved<From>>);
             if constexpr (matchFn::template match<From, To>()) {
-#pragma GCC diagnostic push
-# 209 "./include/commons/core/union.hh"
-                                              ;
-#pragma GCC diagnostic ignored "-Wsign-conversion"
-# 210 "./include/commons/core/union.hh"
-                                                                       ;
-                new (data) To(Forward<V>(value));
-#pragma GCC diagnostic pop
-# 212 "./include/commons/core/union.hh"
-                                             ;
+                constructInPlace<To>(data, Forward<V>(value));
                 return InitSuccess<To, I>{};
             } else {
                 return InitFailure{};
@@ -3001,7 +3077,7 @@ private:
     struct Initializer<matchFn, I, U>
     {
         template<typename V>
-        constexpr static auto match(void*, V&&)
+        constexpr static auto match(u8*, V&&)
         {
             return InitFailure{};
         }
@@ -3015,7 +3091,7 @@ private:
     struct TryInit
     {
         template<typename V>
-        constexpr static auto next(void* data, V&& value)
+        constexpr static auto next(u8* data, V&& value)
         {
 
             if constexpr (IsSame<
@@ -3116,8 +3192,12 @@ public:
     {
         Metadata::_class = other._class;
         _tag = other._tag;
-        Assert(Metadata::_class->moveConstructor, "Type in union not move constructible");
-        Metadata::_class->moveConstructor(_data, other._data);
+        if (Metadata::_class->moveConstructor) {
+            Metadata::_class->moveConstructor(_data, other._data);
+        } else {
+            Assert(Metadata::_class->copyConstructor, "Type in union not move or copy constructible");
+            Metadata::_class->copyConstructor(_data, other._data);
+        }
     }
 
 
@@ -3129,25 +3209,31 @@ public:
     constexpr inline Union& operator=(Union&& other)
         requires (hasNonTrivialDestructor() || hasNonTrivialMoveAssignment() || hasNonTrivialMoveConstructor())
     {
+
         if (_tag == other._tag) {
 
+
             if constexpr (hasNonTrivialMoveAssignment()) {
-                Assert(Metadata::_class->moveAssignOperator, "Type in union not move assignable");
-                Metadata::_class->moveAssignOperator(_data, other._data);
+                moveOrCopyAssignFrom(other);
             } else {
                 __builtin_memcpy_inline(_data, other._data, sizeof(_data));
             }
         } else {
+
+
             if constexpr (hasNonTrivialDestructor()) {
                 Metadata::_class->destructor(_data);
             }
-            Metadata::_class = other._class;
+
+
             if constexpr (hasNonTrivialMoveConstructor()) {
-                Assert(Metadata::_class->moveConstructor, "Type in union not move constructible");
-                Metadata::_class->moveConstructor(_data, other._data);
+                moveOrCopyConstructFrom(other);
             } else {
                 __builtin_memcpy_inline(_data, other._data, sizeof(_data));
             }
+
+
+            Metadata::_class = other._class;
             _tag = other._tag;
         }
         if constexpr (hasNonTrivialDestructor()) {
@@ -3156,6 +3242,28 @@ public:
         return *this;
     }
 
+private:
+    constexpr void moveOrCopyConstructFrom(auto&& other)
+    {
+        if (Metadata::_class->moveConstructor) {
+            Metadata::_class->moveConstructor(_data, other._data);
+        } else {
+            Assert(Metadata::_class->copyConstructor, "Type in union not move or copy constructible");
+            Metadata::_class->copyConstructor(_data, other._data);
+        }
+    }
+
+    constexpr void moveOrCopyAssignFrom(auto&& other)
+    {
+        if (Metadata::_class->moveAssignOperator) {
+            Metadata::_class->moveAssignOperator(_data, other._data);
+        } else {
+            Assert(Metadata::_class->copyAssignOperator, "Type in union not move or copy assignable");
+            Metadata::_class->copyAssignOperator(_data, other._data);
+        }
+    }
+
+public:
 
 
 
@@ -3192,26 +3300,24 @@ public:
 
 
     template<typename T>
-    constexpr inline bool is() const noexcept
+    constexpr bool is() const noexcept
     {
         if constexpr (CopyConstructible<T>) {
-            auto const& k = (_ref<T>());
-            using Init = decltype(TryInit<0, T, Types...>::next(const_cast<u8*>(_data), k));
+            using Init = decltype(TryInit<0, T, Types...>::next(const_cast<u8*>(_data), declval<T const&>()));
             if constexpr (IsSame<Init, InitFailure>) {
                 return false;
             } else {
                 return _tag == Init::Tag;
             }
         } else if constexpr (MoveConstructible<T>) {
-            using Init = decltype(TryInit<0, T, Types...>::template next<T&&>(
-                const_cast<u8*>(_data), static_cast<T&&>(const_cast<T&>(_ref<T>()))));
+            using Init = decltype(TryInit<0, T, Types...>::next(const_cast<u8*>(_data), declval<T&&>()));
             if constexpr (IsSame<Init, InitFailure>) {
                 return false;
             } else {
                 return _tag == Init::Tag;
             }
         } else {
-            using Init = decltype(TryInit<0, T, Types...>::next(const_cast<u8*>(_data), (T(_ref<T>()))));
+            using Init = decltype(TryInit<0, T, Types...>::next(const_cast<u8*>(_data), declval<T>()));
             if constexpr (IsSame<Init, InitFailure>) {
                 return false;
             } else {
@@ -3223,48 +3329,68 @@ public:
 
 
 
+
+
+
     template<typename T>
-    [[nodiscard]] inline T const& _ref() const noexcept
+    inline auto& ref(this auto&& self) noexcept
     {
+        Assert(self.template is<T>());
+
         if constexpr (IsReference<T>) {
             using U = RefRemoved<T>;
-            T const& ref = **reinterpret_cast<U const* const*>(_data);
-            return ref;
+            if constexpr (IsConst<decltype(self)>) {
+                T const& ref = **reinterpret_cast<U const* const*>(self._data);
+                return ref;
+            } else {
+                T& ref = **reinterpret_cast<U**>(self._data);
+                return ref;
+            }
         } else {
-            T const& ref = *reinterpret_cast<T const*>(_data);
-            return ref;
+            if constexpr (IsConst<decltype(self)>) {
+                return *reinterpret_cast<T const*>(self._data);
+            } else {
+                return *reinterpret_cast<T*>(self._data);
+            }
         }
     }
+
+
+
+
+
+
     template<typename T>
-    [[nodiscard]] inline T& _ref() noexcept
+    constexpr inline T val(this auto&& self) noexcept
     {
-        return const_cast<T&>(static_cast<Union const*>(this)->_ref<T>());
+        Assert(self.template is<T>());
+
+        if constexpr (IsTriviallyRelocatable<UnderlyingTypeOf<T>> || IsPrimitiveType<T>) {
+
+            struct
+            {
+                u8 bytes[sizeof(T)]{};
+            } dummy = {};
+
+            for (usize i = 0; i < sizeof(T); i++) {
+                dummy.bytes[i] = self._data[i];
+            }
+            return bit_cast<T>(dummy);
+        } else {
+            return *reinterpret_cast<T const*>(self._data);
+        }
     }
 
 
 
 
-    template<typename T>
-    [[nodiscard]] inline T const& get() const noexcept
-    {
-        Assert(is<T>());
-        return const_cast<ConstRemoved<decltype(_ref<T>())>>(_ref<T>());
-    }
-    template<typename T>
-    [[nodiscard]] inline T& get() noexcept
-    {
-        return const_cast<T&>(static_cast<Union const*>(this)->get<T>());
-    }
-
-
-
-
 
     template<typename T>
-    [[nodiscard]] inline T const& getOrDefault(T const& defaultValue) const noexcept
+    [[nodiscard]]
+    inline auto& getOrDefault(this auto&& self, auto& defaultValue) noexcept
     {
-        if (is<T>()) {
-            return const_cast<ConstRemoved<decltype(_ref<T>())>>(_ref<T>());
+        if (self.template is<T>()) {
+            return self.template get<T>();
         } else {
             return defaultValue;
         }
@@ -3284,7 +3410,7 @@ public:
     {
         using T = FunctionTraits<decltype(func)>::template Arg<0>::Type;
         if (this->is<T>() || this->is<RefRemoved<T>>()) {
-            return func(this->get<T>());
+            return func(this->ref<T>());
         } else {
             return this->match(funcs...);
         }
@@ -3294,7 +3420,7 @@ public:
     {
         using T = FunctionTraits<decltype(func)>::template Arg<0>::Type;
         if (this->is<T>()) {
-            return func(this->get<T>());
+            return func(this->ref<T>());
         } else {
             __builtin_trap();
             __builtin_unreachable();
@@ -3306,7 +3432,7 @@ public:
     {
         using T = FunctionTraits<decltype(func)>::template Arg<0>::Type;
         if (this->is<T>()) {
-            return func(this->get<T>());
+            return func(this->ref<T>());
         } else {
             return this->matchOr<Default>(funcs...);
         }
@@ -3317,7 +3443,7 @@ public:
     {
         using T = FunctionTraits<decltype(func)>::template Arg<0>::Type;
         if (this->is<T>()) {
-            return func(this->get<T>());
+            return func(this->ref<T>());
         } else {
             if constexpr (IsFunction<decltype(Default)> || IsClass<decltype(Default)>) {
                 return Default();
@@ -3497,6 +3623,19 @@ class Optional : public Union<T, NoneType> {
 public:
     using Union<T, NoneType>::Union;
 
+    template<typename U>
+    requires (!IsSame<U, T>)
+    constexpr inline U val() const = delete;
+
+    template<typename U>
+    requires (!IsSame<U, T>)
+    constexpr inline U const& ref() const = delete;
+
+    template<typename U>
+    requires (!IsSame<U, T>)
+    constexpr inline U& ref() = delete;
+
+
 
 
 
@@ -3514,16 +3653,20 @@ public:
 
 
 
-    constexpr inline operator bool() const noexcept { return Base::template is<T>(); }
-    constexpr inline bool hasValue() const noexcept { return this->operator bool(); }
+    constexpr inline bool hasValue() const noexcept { return Base::template is<T>(); }
     constexpr inline bool operator==(NoneType const&) const noexcept { return !hasValue(); }
 
 
 
 
-    constexpr inline T const& value() const { return Base::template get<T>(); }
-    constexpr inline RefRemoved<T>* operator->() const noexcept { return const_cast<RefRemoved<T>*>(&this->value()); }
+    constexpr inline T const& ref() const { return Base::template ref<T>(); }
+    constexpr inline RefRemoved<T>* operator->() const noexcept { return const_cast<RefRemoved<T>*>(&this->ref()); }
 
+
+
+
+
+    constexpr inline T val() const { return Base::template val<T>(); }
 
 
 
@@ -3531,13 +3674,13 @@ public:
     template<class U>
     constexpr inline T valueOr(U&& x) const&
     {
-        return this->hasValue() ? this->value() : static_cast<T>(Forward<U>(x));
+        return this->hasValue() ? this->val() : static_cast<T>(Forward<U>(x));
     }
 
     constexpr static void outputString(Optional const& self, auto const& out)
     {
         if (self.hasValue()) {
-            OutputString(self.value(), out);
+            OutputString(self.ref(), out);
         } else {
             out('N');
             out('o');
@@ -4378,7 +4521,7 @@ public:
     {}
 # 72 "./include/commons/core/arrayref.hh"
     [[clang::return_typestate(consumed)]]
-    constexpr inline ArrayRef([[clang::lifetimebound]] std::initializer_list<T> const& v) noexcept
+    constexpr inline ArrayRef([[clang::lifetimebound]] ::std::initializer_list<T> const& v) noexcept
         : _ptr(const_cast<T*>(v.begin())), _length(v.size())
     {}
 
@@ -4459,7 +4602,10 @@ public:
 
 
     constexpr inline T const* data() const noexcept { return _ptr; }
-# 146 "./include/commons/core/arrayref.hh"
+
+
+
+
     constexpr bool equals(this ArrayRef<T> const& self, ArrayRef<T> const& other)
     {
         if consteval {
@@ -4467,14 +4613,20 @@ public:
         } else {
 
             if constexpr (IsPrimitiveData<T>) {
+                if (&self == &other) {
+                    return true;
+                }
+                if (self.length() != other.length()) {
+                    return false;
+                }
 #pragma GCC diagnostic push
-# 153 "./include/commons/core/arrayref.hh"
+# 155 "./include/commons/core/arrayref.hh"
 #pragma GCC diagnostic ignored "-Wunsafe-buffer-usage"
-# 153 "./include/commons/core/arrayref.hh"
+# 155 "./include/commons/core/arrayref.hh"
                             ;
                 return __builtin_memcmp(self.data(), other.data(), self.sizeBytes()) == 0;
 #pragma GCC diagnostic pop
-# 155 "./include/commons/core/arrayref.hh"
+# 157 "./include/commons/core/arrayref.hh"
                           ;
             } else {
                 return Iterable(self).equals(other);
@@ -4493,13 +4645,13 @@ public:
 
             if constexpr (IsPrimitiveData<T>) {
 #pragma GCC diagnostic push
-# 172 "./include/commons/core/arrayref.hh"
+# 174 "./include/commons/core/arrayref.hh"
 #pragma GCC diagnostic ignored "-Wunsafe-buffer-usage"
-# 172 "./include/commons/core/arrayref.hh"
+# 174 "./include/commons/core/arrayref.hh"
                             ;
                 return __builtin_memcmp(self.data(), other.data(), self.sizeBytes());
 #pragma GCC diagnostic pop
-# 174 "./include/commons/core/arrayref.hh"
+# 176 "./include/commons/core/arrayref.hh"
                           ;
             } else {
                 return Iterable(self).compare(other);
@@ -4517,7 +4669,7 @@ template<typename T>
 ArrayRef(T*, size_t) -> ArrayRef<T>;
 
 template<typename T>
-ArrayRef(std::initializer_list<T>&&) -> ArrayRef<T>;
+ArrayRef(::std::initializer_list<T>&&) -> ArrayRef<T>;
 
 template<typename T, unsigned N>
 ArrayRef(T const (&literal)[N]) -> ArrayRef<T>;
@@ -4540,6 +4692,8 @@ private:
 
 public:
     using ArrayRef<char>::ArrayRef;
+    using IEquatable<StringRef>::operator==;
+    using IEquatable<StringRef>::operator!=;
 
 
 
@@ -4586,10 +4740,13 @@ public:
 
 
     constexpr char const* cstr() const noexcept { return this->data(); }
+# 90 "./include/commons/core/string_ref.hh"
+    template<typename Hasher>
+    constexpr auto hash(auto seed)
+    {
 
-
-
-
+        return Hasher::hashCString(this->data(), seed);
+    }
 };
 
 
@@ -4798,7 +4955,15 @@ constexpr static auto clz(IsInteger auto x) -> UintRanged<BITS<decltype(x)>>
 {
     using R = UintRanged<BITS<decltype(x)>>;
     if constexpr (sizeof(x) <= sizeof(int)) {
-        return R(__builtin_clz(__builtin_bit_cast(unsigned int, x)));
+        if constexpr (sizeof(x) == sizeof(int)) {
+            return R(__builtin_clz(__builtin_bit_cast(unsigned int, x)));
+        } else {
+            if constexpr (IsIntegerSigned<decltype(x)>) {
+                return R(__builtin_clz(__builtin_bit_cast(unsigned int, int(x))));
+            } else {
+                return R(__builtin_clz(x));
+            }
+        }
     } else if constexpr (sizeof(x) <= sizeof(long)) {
         return R(__builtin_clzl(__builtin_bit_cast(unsigned long, x)));
     } else if constexpr (sizeof(x) <= sizeof(long long)) {
@@ -4819,7 +4984,7 @@ constexpr static auto clz(IsInteger auto x) -> UintRanged<BITS<decltype(x)>>
         return R(count);
     }
 }
-# 469 "./include/commons/core/math_int.hh"
+# 477 "./include/commons/core/math_int.hh"
 template<IsInteger auto Base = 10>
 constexpr static u8 log(IsInteger auto x)
 {
@@ -4829,29 +4994,29 @@ constexpr static u8 log(IsInteger auto x)
         return log<2>(x) / 4;
     } else if constexpr (Base == 10) {
         constexpr u8
-# 477 "./include/commons/core/math_int.hh"
+# 485 "./include/commons/core/math_int.hh"
 #pragma GCC diagnostic push
-# 477 "./include/commons/core/math_int.hh"
+# 485 "./include/commons/core/math_int.hh"
 #pragma GCC diagnostic ignored "-Wunsafe-buffer-usage"
-# 477 "./include/commons/core/math_int.hh"
+# 485 "./include/commons/core/math_int.hh"
                      guess[33]
-# 477 "./include/commons/core/math_int.hh"
+# 485 "./include/commons/core/math_int.hh"
 #pragma GCC diagnostic pop
-# 477 "./include/commons/core/math_int.hh"
+# 485 "./include/commons/core/math_int.hh"
                                        = {0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4,
                                           5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 8, 8, 8, 9, 9, 9};
         u8
-# 479 "./include/commons/core/math_int.hh"
+# 487 "./include/commons/core/math_int.hh"
 #pragma GCC diagnostic push
-# 479 "./include/commons/core/math_int.hh"
+# 487 "./include/commons/core/math_int.hh"
 #pragma GCC diagnostic ignored "-Wunsafe-buffer-usage"
-# 479 "./include/commons/core/math_int.hh"
+# 487 "./include/commons/core/math_int.hh"
            digits
-# 479 "./include/commons/core/math_int.hh"
+# 487 "./include/commons/core/math_int.hh"
 #pragma GCC diagnostic pop
-# 479 "./include/commons/core/math_int.hh"
+# 487 "./include/commons/core/math_int.hh"
                           = guess[log<2>(x)];
-        return u8(digits + ((x / 10) >= pow<10>(digits).value()));
+        return u8(digits + ((x / 10) >= pow<10>(digits).val()));
     } else {
         static_assert(false, "Not implemented");
     }
@@ -4864,10 +5029,20 @@ template<unsigned BaseN>
 constexpr static auto msd(IsInteger auto x) -> decltype(x)
 {
     using T = decltype(x);
-    return T(x / pow<BaseN>(log<BaseN>(x)).value());
+    if constexpr (!IsIntegerSigned<T>) {
+        return T(x / pow<BaseN>(log<BaseN>(x)).val());
+    } else {
+        if (x < 0) {
+            if (x == MIN_VALUE<T>) [[unlikely]] {
+                x += 1;
+            }
+            x = -x;
+        }
+        return T(x / pow<BaseN>(log<BaseN>(x)).val());
+    }
 }
-# 509 "./include/commons/core/math_int.hh"
-constexpr void ::cm::__outputString(auto const& value, auto const& out)
+# 527 "./include/commons/core/math_int.hh"
+constexpr void ::cm::impl::outputStringForPrimitiveType(auto const& value, auto const& out)
 {
     constexpr IntBaseFmt Base = IntBaseFmt::B10;
     constexpr IntegerParsingScheme S = IntegerParsingScheme::DEFAULT;
@@ -5189,38 +5364,7 @@ public:
         float const result = __builtin_bit_cast(float, finalFinalBits);
         return {result, expon};
     }
-
-
-
-
-
-    [[gnu::flatten]]
-    constexpr static float log2(float value)
-    {
-        constexpr float a = 0.59329970349044314f, b = 2.3979646338966889f, c = -0.96358966800238843f,
-                        d = -1.8439274267589987f, e = -0.18374724264449727f, f = 0.1068562844523792f,
-                        g = 1.2392957064266512f, h = 2.0062979261642901f, i = 0.63680961689938775f,
-                        j = 0.028211791264274255f;
-
-        u32 mask = (__builtin_bit_cast(u32, value) & 0x7fffffffu);
-        if (mask >= 0x7f800000u || value <= 0.0f) [[unlikely]] {
-            if (value < 0.0f) {
-                return -QNAN;
-            } else if (mask == 0) {
-                return NEG_INF;
-            } else {
-                return value;
-            }
-        }
-
-        auto [dM, iExp] = frexpFiniteNonzero(value);
-        auto dM2 = dM * dM;
-        auto dM3 = dM * dM2;
-        auto dM4 = dM2 * dM2;
-        auto x = 1.0f / (((f * dM4 + h * dM2) + (g * dM3 + i * dM)) + j);
-        return float(iExp) + x * (((a * dM4 + c * dM2) + (b * dM3 + d * dM)) + e);
-    }
-
+# 308 "./include/commons/core/math_float.hh"
 private:
     static float _maxIntrin(float x, float y);
     static float _minIntrin(float x, float y);
@@ -5328,6 +5472,13 @@ struct Double
 
 
 
+    [[gnu::always_inline]] inline constexpr static double abs(double x)
+    {
+        return bit_cast<double>(bit_cast<u64>(x) & 0x7fff'ffff'ffff'ffff);
+    }
+
+
+
 
     [[gnu::always_inline]] inline constexpr static bool isNaN(double x)
     {
@@ -5345,10 +5496,20 @@ struct Double
     }
 
 
+
+
+    [[gnu::always_inline]] inline constexpr static bool isNotFinite(double x) { return bit_cast<u64>(abs(x)) >= 0x7FF0000000000000; }
+
+
+
+
+    [[gnu::always_inline]] inline constexpr static bool isFinite(double x) { return bit_cast<u64>(abs(x)) < 0x7FF0000000000000; }
+
+
     [[gnu::always_inline]] inline constexpr static double fma(double x, double y, double z)
     {
 #pragma clang fp contract(fast)
-# 84 "./include/commons/core/math_double.hh"
+# 101 "./include/commons/core/math_double.hh"
                                           ;
         return (x * y) + z;
     }
@@ -5395,7 +5556,6 @@ struct Double
         }
     }
 
-
     constexpr static double pow(double x, int n)
     {
         double r = 1.0;
@@ -5422,19 +5582,10 @@ struct Double
         return y < 0 ? 1.0 / r : r;
     }
 
-
-    constexpr static auto frexp_v2_finite_nonzero(double value) -> Tuple<double, int>
+    constexpr static auto frexp(double value) -> Tuple<double, int>
     {
-        u64 const bits = __builtin_bit_cast(u64, value);
-        int const expon = ((bits >> 52) & 0x7FF) - 1022;
-        u64 const final_bits = (bits & 0x800fffff'ffffffff) | 0x3fe0000000000000;
-        return {__builtin_bit_cast(double, final_bits), expon};
-    }
-
-    constexpr static auto frexp_v2(double value) -> Tuple<double, int>
-    {
-        u64 const bits = __builtin_bit_cast(u64, value);
-        bool const isNotFiniteOrIsZero = (bits >= 0x7FF0000000000000 || bits == 0);
+        u64 const bits = bit_cast<u64>(value);
+        bool const isNotFiniteOrIsZero = (isFinite(value) || bits == 0);
 
         int const expon = (((bits >> 52) & 0x7FF) - 1022) * !isNotFiniteOrIsZero;
         u64 const finalBits = (bits & 0x800fffff'ffffffff) | 0x3fe0000000000000;
@@ -5447,22 +5598,29 @@ struct Double
         return {result, expon};
     }
 
+    constexpr static auto frexpFiniteNonzero(double value) -> Tuple<double, int>
+    {
+        u64 const bits = __builtin_bit_cast(u64, value);
+        int const expon = ((bits >> 52) & 0x7FF) - 1022;
+        u64 const final_bits = (bits & 0x800fffff'ffffffff) | 0x3fe0000000000000;
+        return {__builtin_bit_cast(double, final_bits), expon};
+    }
+
 
 
 
 
     constexpr static double log2(double value)
     {
-        using T = double;
-        constexpr double a = 1.000000000000000000000e+00L, b = 1.251649209001242901707e+01L,
-                         c = 2.046583854860732643033e+01L, d = -1.097536826489419503616e+01L,
-                         e = -1.881965876655596403566e+01L, f = -4.046684236630626152476e+00L,
-                         g = -1.406193705389736370304e-01L, h = 1.518692933639071429575e-01L,
-                         i = 3.897795033656223484542e+00L, j = 1.728188727732104723600e+01L,
-                         k = 2.168720176727976678421e+01L, l = 8.568477446142038544963e+00L,
-                         m = 9.581795852523320444760e-01L, n = 1.851054408942580734032e-02L;
+        constexpr double
+            a = 1.000000000000000000000e+00L,
+            b = 1.251649209001242901707e+01L, c = 2.046583854860732643033e+01L, d = -1.097536826489419503616e+01L,
+            e = -1.881965876655596403566e+01L, f = -4.046684236630626152476e+00L, g = -1.406193705389736370304e-01L,
+            h = 1.518692933639071429575e-01L, i = 3.897795033656223484542e+00L, j = 1.728188727732104723600e+01L,
+            k = 2.168720176727976678421e+01L, l = 8.568477446142038544963e+00L, m = 9.581795852523320444760e-01L,
+            n = 1.851054408942580734032e-02L;
 
-        u64 mask = (__builtin_bit_cast(u64, value));
+        auto mask = bit_cast<u64>(value);
         if (mask >= 0x7FF0000000000000 || value <= 0.0) [[unlikely]] {
             if (value < 0.0) {
                 return -QNAN;
@@ -5472,13 +5630,15 @@ struct Double
                 return value;
             }
         }
-        auto [dM, iExp] = frexp_v2_finite_nonzero(value);
-        T dM2 = dM * dM;
-        T dM3 = dM * dM2;
-        T dM4 = dM2 * dM2;
-        T dM5 = dM2 * dM3;
-        T dM6 = dM3 * dM3;
-        T x = 1.0 / ((((h * dM6 + n) + (i * dM5 + m * dM)) + (j * dM4 + l * dM2)) + k * dM3);
+        auto stupid = frexpFiniteNonzero(value);
+        auto dM = stupid.template get<0>();
+        auto iExp = stupid.template get<1>();
+        auto dM2 = dM * dM;
+        auto dM3 = dM * dM2;
+        auto dM4 = dM2 * dM2;
+        auto dM5 = dM2 * dM3;
+        auto dM6 = dM3 * dM3;
+        auto x = 1.0 / ((((h * dM6 + n) + (i * dM5 + m * dM)) + (j * dM4 + l * dM2)) + k * dM3);
         return iExp + x * (((((a * dM6 + g) + (c * dM4 + d * dM3)) + b * dM5) + f * dM) + e * dM2);
     }
 
@@ -5499,6 +5659,11 @@ struct Double
     }
 
 } inline constexpr Double;
+
+static_assert(Double::isFinite(1.0) && Double::isFinite(-999.0));
+static_assert(
+    !Double::isFinite(Double::NEG_INF) && !Double::isFinite(Double::POS_INF) && !Double::isFinite(Double::QNAN));
+
 
 }
 # 60 "./include/commons/core.hh" 2
@@ -5728,6 +5893,33 @@ struct Crc32
         }
 
     }
+
+
+
+
+    template<typename T>
+    constexpr static u32 hashCString(T const* in, u32 seed)
+    {
+        do {
+            static_assert(sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4);
+            if constexpr (sizeof(T) == 1) {
+                seed = hash8(u8(*in), seed);
+            } else if constexpr (sizeof(T) == 2) {
+                seed = hash16(u16(*in), seed);
+            } else if constexpr (sizeof(T) == 4) {
+                seed = hash32(u32(*in), seed);
+            }
+        } while (*in++);
+        return seed;
+    }
+
+    constexpr static u32 hashBytes(u8 const* in, u32 length, u32 seed)
+    {
+        while (length-- != 0) {
+            seed = hash8(*in, seed);
+        }
+        return seed;
+    }
 };
 
 
@@ -5755,7 +5947,7 @@ struct Hash
     constexpr inline static HashResult hash(T in, SeedType seed = DEFAULT_SEED)
     {
         if constexpr (IsUnderlyingTypeOneOf<T, char*, wchar_t*, char8_t*, char16_t*, char32_t*>) {
-            return _hashCharPtr(in);
+            return Hasher::hashCString(in, seed);
         } else if constexpr (!IsClass<T>) {
             if constexpr (sizeof(in) == 1) {
                 return Hasher::hash8(bit_cast<u8>(in), seed);
@@ -6252,7 +6444,7 @@ public:
 
 
 
-    Array(std::initializer_list<T> const& v)
+    Array(::std::initializer_list<T> const& v)
     {
         if constexpr (L == ARRAY_LENGTH_UNSPECIFIED) {
             Base::_data = new T[v.size()];
@@ -6528,7 +6720,7 @@ public:
 
 
 template<typename T>
-Array(std::initializer_list<T> const&) -> Array<T, ARRAY_LENGTH_UNSPECIFIED>;
+Array(::std::initializer_list<T> const&) -> Array<T, ARRAY_LENGTH_UNSPECIFIED>;
 # 386 "./include/commons/datastructs/array.hh"
 template<typename T>
 constexpr auto Array2D(auto rows, auto cols)
@@ -7120,8 +7312,8 @@ public:
         usize baseIndex = 0;
         Optional<usize> index = None;
         while ((index = this->find(substr, baseIndex)) != None) {
-            erase(index.value(), substr.length());
-            insert(index.value(), replacement);
+            erase(index.ref(), substr.length());
+            insert(index.ref(), replacement);
             baseIndex += replacement.length();
         }
     }
@@ -7560,220 +7752,152 @@ inline auto DLList::Container::Iterator::_get() -> void*
 
 }
 # 40 "./include/commons/datastructs.hh" 2
-# 1 "./include/commons/datastructs/sparse_array.hh" 1
-# 20 "./include/commons/datastructs/sparse_array.hh"
+# 1 "./include/commons/datastructs/fixed_map.hh" 1
+# 30 "./include/commons/datastructs/fixed_map.hh"
 namespace cm {
-
-template<typename Type>
-struct SparseArray;
-
-
 
 
 namespace impl {
-class SparseArray {
-protected:
-    template<typename T>
-    friend struct ::cm::SparseArray;
-
-
-    struct Container
-    {
-        void _clear();
-        void* _get(void const* pIndex) const;
-
-        void** _data;
-        ClassRef _objclass;
-        usize _length;
-    };
-};
-}
-
-
-struct SparseArrayBase
-{};
-# 59 "./include/commons/datastructs/sparse_array.hh"
-#pragma GCC diagnostic push
-# 59 "./include/commons/datastructs/sparse_array.hh"
-#pragma GCC diagnostic ignored "-Wunsafe-buffer-usage"
-template<typename Type>
-struct SparseArray
+template<typename T>
+struct FixGotchaType
 {
-    Type** data;
-    usize _length;
+    using Type = T;
+};
+
+template<unsigned N, typename T>
+struct FixGotchaType<T const (&)[N]>
+{
+    using Type = ArrayRef<T>;
+};
+
+template<unsigned N>
+struct FixGotchaType<char const (&)[N]>
+{
+    using Type = StringRef;
+};
+
+
+}
+# 62 "./include/commons/datastructs/fixed_map.hh"
+template<typename T>
+using FixGotchaType = typename ::cm::impl::FixGotchaType<T>::Type;
+# 72 "./include/commons/datastructs/fixed_map.hh"
+template<typename K, typename V, unsigned N>
+struct FixedMap
+{
+private:
+    Array<Optional<Tuple<K, V>>, N> _table;
 
 
 public:
-    SparseArray() { this->data = new Type*[256]{}; }
-
-    ~SparseArray() { clear(); }
-
-    void clear()
-    {
-        auto ptr = this->data;
-
-        auto _ = [&](this auto const& next_, unsigned depth) -> void {
-            if (depth == 0) {
-                for (int k = 0; k < 256; k++) {
-                    if (ptr[k]) {
-                        delete ptr;
-                    }
-                }
-            } else {
-                for (int k = 0; k < 256; k++) {
-                    if (ptr[k] != nullptr) {
-                        ptr = reinterpret_cast<Type**>(ptr[k]);
-                        next_(depth - 1);
-                        delete[] ptr;
-                    }
-                }
-            }
-        };
-        _(8);
-    }
-
-
-    void set(u64 index, Type const& value) noexcept
-    {
-        auto ptr = this->data;
-
-        for (int _ = 0; _ < 7; _++, index >>= 8) {
-            auto i = static_cast<u8>(index);
-            ptr[i] = !ptr[i] ? reinterpret_cast<Type*>(new Type*[256]{}) : ptr[i];
-            ptr = reinterpret_cast<Type**>(ptr[i]);
-        }
-        auto i = static_cast<u8>(index);
-        if (!ptr[i]) {
-            ptr[i] = new Type();
-            _length++;
-        }
-        *ptr[i] = value;
-    }
-
-    Optional<Type> get(u64 index) const noexcept
-    {
-        auto ptr = this->data;
-
-        for (int _ = 0; _ < 7; _++, index >>= 8) {
-            if (ptr == nullptr)
-                return None;
-            ptr = reinterpret_cast<Type**>(ptr[static_cast<u8>(index)]);
-        }
-        auto i = static_cast<u8>(index);
-        return !ptr[i] ? None : Optional<Type>(*ptr[i]);
-    }
-
-    void removeAt(u64 index)
-    {
-        auto ptr = this->data;
-        for (int _ = 0; _ < 7; _++, index >>= 8) {
-            if (ptr == nullptr)
-                return;
-            ptr = reinterpret_cast<Type**>(ptr[static_cast<u8>(index)]);
-        }
-        auto i = static_cast<u8>(index);
-        if (ptr[i]) {
-            delete ptr[i];
-        }
-        if (_length > 0)
-            _length--;
-    }
-
-    void forEach(auto visitor)
-    {
-        auto ptr = this->data;
-
-        auto _ = [&](this auto const& next_, unsigned depth) -> void {
-            if (depth == 0) {
-                for (int k = 0; k < 256; k++) {
-                    if (ptr[k])
-                        visitor(ptr);
-                }
-            } else {
-                for (int k = 0; k < 256; k++) {
-                    if (ptr[k] != nullptr) {
-                        ptr = reinterpret_cast<Type**>(ptr[k]);
-                        return next_(depth - 1);
-                    }
-                }
-            }
-        };
-        _(8);
-    }
-
-    constexpr static auto INDEX_BITS = 64;
-    constexpr static auto GRANULARITY = 256;
-
-
-    struct Iterator
-    {};
-
-
-    Iterator begin() {}
-};
-
-
-}
-#pragma GCC diagnostic pop
-# 41 "./include/commons/datastructs.hh" 2
-# 1 "./include/commons/datastructs/map.hh" 1
-# 20 "./include/commons/datastructs/map.hh"
-namespace cm {
-# 33 "./include/commons/datastructs/map.hh"
-template<typename K, typename V>
-struct Map
-{
     using HashFunction = CFunction<u32(K const&)>;
     constexpr static u32 defaultHashFunction(K const& k) { return Hash<Crc32>::hash(k); };
+    constexpr static HashFunction _hashFunc = defaultHashFunction;
 
 
-    Map(HashFunction const& hashFunc = defaultHashFunction)
-        : _array(), _hashFunc(hashFunc)
-    {}
 
 
-    void put(K const& key, V const& value)
+
+
+
+    template<typename... Args>
+    requires ((sizeof...(Args) % 2) == 0)
+    FixedMap(Args&&... keysValues)
     {
-        u32 keyHash = _hashFunc(key);
-        u64 index = u64(keyHash) << 32;
-
-        for (u32 j = 0; j < MAX_VALUE<u32>; j++) {
-            u64 offset = index + j;
-            Optional<Pair<K, V>> entry = _array.get(offset);
-
-            if (!entry.hasValue()) {
-                _array.set(offset, Pair<K, V>(key, value));
-                break;
+        auto f = [&]<int I>(this auto&& self) {
+            if constexpr (I < sizeof...(Args)) {
+                add(Tuple<K, V>(keysValues...[I], keysValues...[I + 1]));
+                self.template operator()<I + 2>();
             }
+        };
+        f.template operator()<0>();
+    }
+
+    FixedMap(ArrayRef<Tuple<K, V>> const& tuples)
+    {
+        for (auto const& tuple : tuples) {
+            add(tuple);
         }
     }
 
-    Optional<V&> get(K const& key)
+
+
+
+    constexpr Optional<V> operator[](K const& key)
     {
-        u32 keyHash = _hashFunc(key);
-        u64 index = u64(keyHash) << 32;
-
-        for (u32 j = 0; j < MAX_VALUE<u32>; j++) {
-            u64 offset = index + j;
-            Optional<Pair<K, V>> entry = _array.get(offset);
-
-            if (!entry.hasValue()) {
-                return None;
-            } else if (entry.hasValue() && key == entry.value().first) {
-                return entry.value().second;
-            }
+        auto i = _hashFunc(key) % N;
+        if (!_table[i].hasValue()) {
+            return None;
+        } else if (auto const& ref = _table[i].ref(); ref.template get<0>() == key) {
+            return ref.template get<1>();
         }
+        auto j = i;
+        auto c = 0u;
+        do {
+            j++;
+            if (j >= N) {
+                j = 0;
+            }
+            if (c == N) {
+                break;
+            }
+            if (_table[j].hasValue() && _table[j].ref().template get<0>() == key) {
+                return _table[j].val().template get<1>();
+            }
+            ++c;
+        } while (_table[j].hasValue());
         return None;
     }
 
-private:
-    SparseArray<Pair<K, V>> _array;
-    HashFunction _hashFunc;
+    constexpr void add(Tuple<K, V> const& tuple)
+    {
+        auto const& key = tuple.template get<0>();
+        auto i = _hashFunc(key) % N;
+        if (!_table[i].hasValue()) {
+            _table[i] = tuple;
+            return;
+        }
+
+        auto j = i;
+        auto c = 0u;
+        do {
+            if (_table[j].hasValue() && key == _table[j].ref().template get<0>()) {
+                _table[j] = tuple;
+                return;
+            }
+            j++;
+            if (j >= N) {
+                j = 0;
+            }
+            if (c == N) {
+                break;
+            }
+            if (!_table[j].hasValue()) {
+                _table[j] = tuple;
+                return;
+            }
+            ++c;
+        } while (_table[j].hasValue());
+
+        Assert(false);
+    }
+
+    constexpr auto capacity() { return N; }
+
+    constexpr void add(K const& key, V const& value) { add(Tuple<K, V>(key, value)); }
 };
+# 184 "./include/commons/datastructs/fixed_map.hh"
+template<typename K, typename V>
+FixedMap(K&&, V&&) -> FixedMap<FixGotchaType<K>, FixGotchaType<V>, 1>;
+
+template<typename K, typename V, typename... KVN>
+FixedMap(K&&, V&&, KVN&&...) -> FixedMap<FixGotchaType<K>, FixGotchaType<V>, (sizeof...(KVN) / 2) + 1>;
+
+
 
 
 }
-# 42 "./include/commons/datastructs.hh" 2
+# 41 "./include/commons/datastructs.hh" 2
 # 33 "./include/commons/system.hh" 2
 
 
@@ -9029,7 +9153,7 @@ struct LinuxShell : NonCopyable
         if (output.hasValue()) {
             for (int value = fgetc(fp); value != (-1); value = fgetc(fp)) {
                 auto byte = char(value);
-                output.value()(&byte, 1);
+                output.ref()(&byte, 1);
             }
         }
         return pclose(fp);

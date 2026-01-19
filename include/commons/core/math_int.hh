@@ -437,7 +437,15 @@ constexpr static auto clz(IsInteger auto x) -> UintRanged<BITS<decltype(x)>>
 {
     using R = UintRanged<BITS<decltype(x)>>;
     if constexpr (sizeof(x) <= sizeof(int)) {
-        return R(__builtin_clz(__builtin_bit_cast(unsigned int, x)));
+        if constexpr (sizeof(x) == sizeof(int)) {
+            return R(__builtin_clz(__builtin_bit_cast(unsigned int, x)));
+        } else {
+            if constexpr (IsIntegerSigned<decltype(x)>) {
+                return R(__builtin_clz(__builtin_bit_cast(unsigned int, int(x))));
+            } else {
+                return R(__builtin_clz(x));
+            }
+        }
     } else if constexpr (sizeof(x) <= sizeof(long)) {
         return R(__builtin_clzl(__builtin_bit_cast(unsigned long, x)));
     } else if constexpr (sizeof(x) <= sizeof(long long)) {
@@ -477,7 +485,7 @@ constexpr static u8 log(IsInteger auto x)
         constexpr u8 UNSAFE(guess[33]) = {0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4,
                                           5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 8, 8, 8, 9, 9, 9};
         u8 UNSAFE(digits) = guess[log<2>(x)];
-        return u8(digits + ((x / 10) >= pow<10>(digits).value()));
+        return u8(digits + ((x / 10) >= pow<10>(digits).val()));
     } else {
         static_assert(false, "Not implemented");
     }
@@ -490,7 +498,17 @@ template<unsigned BaseN>
 constexpr static auto msd(IsInteger auto x) -> decltype(x)
 {
     using T = decltype(x);
-    return T(x / pow<BaseN>(log<BaseN>(x)).value());
+    if constexpr (!IsIntegerSigned<T>) {
+        return T(x / pow<BaseN>(log<BaseN>(x)).val());
+    } else {
+        if (x < 0) {
+            if (x == MIN_VALUE<T>) [[unlikely]] {
+                x += 1;
+            }
+            x = -x;
+        }
+        return T(x / pow<BaseN>(log<BaseN>(x)).val());
+    }
 }
 
 
@@ -506,7 +524,7 @@ constexpr static auto msd(IsInteger auto x) -> decltype(x)
 // #endif
 
 
-constexpr void ::cm::__outputString(auto const& value, auto const& out)
+constexpr void ::cm::impl::outputStringForPrimitiveType(auto const& value, auto const& out)
 {
     constexpr IntBaseFmt Base = IntBaseFmt::B10;
     constexpr IntegerParsingScheme S = IntegerParsingScheme::DEFAULT;

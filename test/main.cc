@@ -7,19 +7,16 @@
 
 using namespace cm;
 
-void foo(Union<double, char const*>& u) { u = "Hello"; }
-
 
 int main()
 {
-    Union<double, char const*> x = "aaaa";
-    foo(x);
+    auto s = FixedMap("hello", "!", "bob", "ugh", "apple", ":C", "apple", ":^\\");
 
-    stdout.println(x.get<char const*>());
-
-    // auto str = "Hello world `"_fmt(1);
-    // stdout.println(str);
+    stdout.println(s["hello"]);
+    stdout.println(s["bob"]);
+    stdout.println(s["apple"]);
 }
+
 /*
 
 ///
@@ -87,10 +84,7 @@ int main()
     //     stdout->println(dir);
     // }
 
-    // Map<char const*, int> map;
-    // map.put("Hello", 10);
 
-    // stdout->println(map.get("Hello"));
 
     return 0;
 }

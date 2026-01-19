@@ -152,6 +152,33 @@ struct Crc32
         }
 #endif
     }
+
+    ///
+    /// Hashes a char string.
+    ///
+    template<typename T>
+    constexpr static u32 hashCString(T const* in, u32 seed)
+    {
+        do {
+            static_assert(sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4);
+            if constexpr (sizeof(T) == 1) {
+                seed = hash8(u8(*in), seed);
+            } else if constexpr (sizeof(T) == 2) {
+                seed = hash16(u16(*in), seed);
+            } else if constexpr (sizeof(T) == 4) {
+                seed = hash32(u32(*in), seed);
+            }
+        } while (*in++);
+        return seed;
+    }
+
+    constexpr static u32 hashBytes(u8 const* in, u32 length, u32 seed)
+    {
+        while (length-- != 0) {
+            seed = hash8(*in, seed);
+        }
+        return seed;
+    }
 };
 
 

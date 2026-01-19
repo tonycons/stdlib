@@ -43,7 +43,7 @@ struct Hash
     constexpr inline static HashResult hash(T in, SeedType seed = DEFAULT_SEED)
     {
         if constexpr (IsUnderlyingTypeOneOf<T, char*, wchar_t*, char8_t*, char16_t*, char32_t*>) {
-            return _hashCharPtr(in);
+            return Hasher::hashCString(in, seed);
         } else if constexpr (!IsClass<T>) {
             if constexpr (sizeof(in) == 1) {
                 return Hasher::hash8(bit_cast<u8>(in), seed);

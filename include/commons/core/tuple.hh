@@ -17,6 +17,8 @@
 #warning Do not include this file directly; include "core.hh" instead
 #else
 
+namespace cm {
+
 #if __has_builtin(__make_integer_seq)
 
 template<typename T, T... Index>
@@ -65,11 +67,16 @@ struct TupleLeaf
     Item value;
 };
 
+// all tuples share this base class -- its only purpose is to implement the IsTuple concept, where we can check if a
+// type is a Tuple by checking if it is derived from TupleBase.
+struct TupleBase
+{};
+
 template<unsigned I, typename... Items>
 struct TupleImpl;
 
 template<unsigned I>
-struct TupleImpl<I>
+struct TupleImpl<I> : TupleBase
 {};
 
 // Recursive specialization
@@ -83,12 +90,21 @@ protected:
     {}
 };
 
+template<typename... Args>
+struct Tuple;
+
 ///
 /// Tuple
+/// TODO: Make an ImmutableTuple which is trivially relocatable.
 ///
 template<typename... Args>
 struct Tuple : TupleImpl<0, Args...>
 {
+    constexpr Tuple() = default;
+    constexpr Tuple(Tuple&&) = default;
+    constexpr Tuple(Tuple const&) = default;
+    constexpr Tuple& operator=(Tuple&&) = default;
+    constexpr Tuple& operator=(Tuple const&) = default;
 
     ///
     /// Initialize tuple with values for elements.
@@ -96,11 +112,6 @@ struct Tuple : TupleImpl<0, Args...>
     constexpr Tuple(auto&&... args)
         : TupleImpl<0, Args...>{Forward<decltype(args)>(args)...}
     {}
-
-    ///
-    /// TODO: Disable if elements aren't copy constructible
-    ///
-    constexpr Tuple(Tuple const&) = default;
 
     ///
     /// Number of elements in the tuple.
@@ -173,6 +184,7 @@ public:
     using Element = GetType<0, N, Args...>::Type;
 };
 
+
 template<typename TupleT, unsigned N>
 struct GetTupleElement
 {
@@ -182,6 +194,13 @@ struct GetTupleElement
 template<typename TupleT, unsigned N>
 using TupleElement = typename GetTupleElement<TupleT, N>::Type;
 
+///
+/// Deduction guide
+///
+template<typename... Args>
+Tuple(Args&&... args) -> Tuple<Args...>;
+
+}  // namespace cm
 
 namespace std {
 
@@ -193,17 +212,25 @@ struct tuple_element;
 
 
 template<typename... Args>
-struct tuple_size<::Tuple<Args...>>
+struct tuple_size<::cm::Tuple<Args...>>
 {
     constexpr static auto value = sizeof...(Args);
 };
 
 template<decltype(0uz) Index, typename... Args>
-struct tuple_element<Index, ::Tuple<Args...>>
+struct tuple_element<Index, ::cm::Tuple<Args...>>
 {
-    using type = TupleElement<::Tuple<Args...>, Index> const;
+    using type = ::cm::TupleElement<::cm::Tuple<Args...>, Index> const;
 };
 }  // namespace std
 
+namespace cm {
+
+template<typename T>
+concept IsTuple = IsDerivedFrom<TupleBase, RValueRefRemoved<CVRefRemoved<T>>>;
+// template<typename T>
+// concept IsPair = IsDerivedFrom<PairBase, RValueRefRemoved<CVRefRemoved<T>>>;
+
+}  // namespace cm
 
 #endif

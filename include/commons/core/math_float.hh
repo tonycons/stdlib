@@ -278,32 +278,32 @@ public:
     /// Calculates the base 2 logarithm, accurate to at least 36 bits.
     /// From https://github.com/emjay2k/Approximations/blob/master/logapprox.h#L82
     ///
-    [[gnu::flatten]]
-    constexpr static float log2(float value)
-    {
-        constexpr float a = 0.59329970349044314f, b = 2.3979646338966889f, c = -0.96358966800238843f,
-                        d = -1.8439274267589987f, e = -0.18374724264449727f, f = 0.1068562844523792f,
-                        g = 1.2392957064266512f, h = 2.0062979261642901f, i = 0.63680961689938775f,
-                        j = 0.028211791264274255f;
+    // [[gnu::flatten]]
+    // constexpr static float log2(float value)
+    // {
+    //     constexpr float a = 0.59329970349044314f, b = 2.3979646338966889f, c = -0.96358966800238843f,
+    //                     d = -1.8439274267589987f, e = -0.18374724264449727f, f = 0.1068562844523792f,
+    //                     g = 1.2392957064266512f, h = 2.0062979261642901f, i = 0.63680961689938775f,
+    //                     j = 0.028211791264274255f;
 
-        u32 mask = (__builtin_bit_cast(u32, value) & 0x7fffffffu);
-        if (mask >= 0x7f800000u || value <= 0.0f) [[unlikely]] {
-            if (value < 0.0f) {
-                return -QNAN;
-            } else if (mask == 0) {
-                return NEG_INF;
-            } else {
-                return value;
-            }
-        }
+    // u32 mask = (__builtin_bit_cast(u32, value) & 0x7fffffffu);
+    // if (mask >= 0x7f800000u || value <= 0.0f) [[unlikely]] {
+    //     if (value < 0.0f) {
+    //         return -QNAN;
+    //     } else if (mask == 0) {
+    //         return NEG_INF;
+    //     } else {
+    //         return value;
+    //     }
+    // }
 
-        auto [dM, iExp] = frexpFiniteNonzero(value);
-        auto dM2 = dM * dM;
-        auto dM3 = dM * dM2;
-        auto dM4 = dM2 * dM2;
-        auto x = 1.0f / (((f * dM4 + h * dM2) + (g * dM3 + i * dM)) + j);
-        return float(iExp) + x * (((a * dM4 + c * dM2) + (b * dM3 + d * dM)) + e);
-    }
+    // auto [dM, iExp] = frexpFiniteNonzero(value);
+    // auto dM2 = dM * dM;
+    // auto dM3 = dM * dM2;
+    // auto dM4 = dM2 * dM2;
+    // auto x = 1.0f / (((f * dM4 + h * dM2) + (g * dM3 + i * dM)) + j);
+    // return float(iExp) + x * (((a * dM4 + c * dM2) + (b * dM3 + d * dM)) + e);
+    // }
 
 private:
     static float _maxIntrin(float x, float y);

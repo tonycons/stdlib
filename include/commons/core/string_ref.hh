@@ -31,6 +31,8 @@ private:
 
 public:
     using ArrayRef<char>::ArrayRef;
+    using IEquatable<StringRef>::operator==;
+    using IEquatable<StringRef>::operator!=;
 
     ///
     /// Constructs a StringRef from a C-style null terminated string. Be careful that the string is actually null
@@ -81,6 +83,16 @@ public:
     ///
     /// Compare two strings, ignoring case.
     ///
+
+    ///
+    /// The hash
+    ///
+    template<typename Hasher>
+    constexpr auto hash(auto seed)
+    {
+        // (do not use memory address for seed -- otherwise equivalent strings could produce different hash values!!
+        return Hasher::hashCString(this->data(), seed);
+    }
 };
 
 
