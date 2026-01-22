@@ -15,9 +15,12 @@ int main()
     stdout.println(s["hello"]);
     stdout.println(s["bob"]);
     stdout.println(s["apple"]);
+
+    Union<double, int> h = 1;
+
+    h.match([](int) { stdout.println("this is an int"); }, [](double) { stdout.println("this is a double"); });
 }
 
-/*
 
 ///
 /// An example of using arrays and ranges
@@ -39,6 +42,7 @@ int levenshteinDistance(StringRef s1, StringRef s2)
         (m - 1, n - 1);                               // final result
 }
 
+/*
 int main()
 {
     stdout->println(
