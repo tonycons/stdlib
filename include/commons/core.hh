@@ -18,55 +18,41 @@
 #pragma once
 #define __inline_core_header__
 
-// clang-format off
-
-#ifndef HEADER
-#define __module_path_str_helper(x) #x
-#define __module_path_str(x) __module_path_str_helper(x)
-#define __base_path0 commons
-#define HEADER(file) __module_path_str(__base_path0/file)
-#endif
-
-#include HEADER(core/base_definitions.hh)     // IWYU pragma: keep
-#include HEADER(resources/OneCharStringTable.hh) // IWYU pragma: keep
-#include HEADER(core/cstring.hh)              // IWYU pragma: keep
-#include HEADER(core/range.hh)                // IWYU pragma: keep
-#include HEADER(core/reflection_type.hh)      // IWYU pragma: keep
-#include HEADER(core/comparable.hh)           // IWYU pragma: keep
-#include HEADER(core/generator.hh)            // IWYU pragma: keep
-#include HEADER(core/initializer_list.hh)     // IWYU pragma: keep
-#include HEADER(core/tuple.hh)                // IWYU pragma: keep
-#include HEADER(core/reflection_function.hh)  // IWYU pragma: keep
-#include HEADER(core/function.hh)             // IWYU pragma: keep
-#include HEADER(core/intbase.hh)              // IWYU pragma: keep
-#include HEADER(core/assert.hh)               // IWYU pragma: keep
-#include HEADER(core/property.hh)             // IWYU pragma: keep
-#include HEADER(core/pointer.hh)              // IWYU pragma: keep
-#include HEADER(core/class.hh)                // IWYU pragma: keep
-#include HEADER(core/union.hh)                // IWYU pragma: keep
-#include HEADER(core/result.hh)               // IWYU pragma: keep
-#include HEADER(core/optional.hh)             // IWYU pragma: keep
-#include HEADER(core/errors.hh)               // IWYU pragma: keep
-#include HEADER(core/profiler.hh)             // IWYU pragma: keep
-
-#include HEADER(core/array_iterator.hh)       // IWYU pragma: keep
-#include HEADER(core/index.hh)                // IWYU pragma: keep
-#include HEADER(core/iterable.hh)             // IWYU pragma: keep
-#include HEADER(core/arrayref.hh)             // IWYU pragma: keep
-#include HEADER(core/string_ref.hh)           // IWYU pragma: keep
-#include HEADER(core/math_int.hh)             // IWYU pragma: keep
-#include HEADER(core/math_float.hh)           // IWYU pragma: keep
-#include HEADER(core/math_double.hh)           // IWYU pragma: keep
-
-
-#include HEADER(core/rng.hh)                  // IWYU pragma: keep
-#include HEADER(core/hash.hh)                 // IWYU pragma: keep
-
-#include HEADER(core/search.hh)               // IWYU pragma: keep
-#include HEADER(core/predicates.hh)           // IWYU pragma: keep
-
-
-// clang-format on
+#include "core/BaseDefs.inl"                // IWYU pragma: keep
+#include "resources/OneCharStringTable.hh"  // IWYU pragma: keep
+#include "core/CString.inl"                 // IWYU pragma: keep
+#include "core/Range.inl"                   // IWYU pragma: keep
+#include "core/TypeReflection.inl"          // IWYU pragma: keep
+#include "core/Comparable.inl"              // IWYU pragma: keep
+#include "core/Generator.inl"               // IWYU pragma: keep
+#include "core/initializer_list.hh"         // IWYU pragma: keep
+#include "core/Tuple.inl"                   // IWYU pragma: keep
+#include "core/FunctionReflection.inl"      // IWYU pragma: keep
+#include "core/Function.inl"                // IWYU pragma: keep
+#include "core/IntDefs.inl"                 // IWYU pragma: keep
+#include "core/Assert.inl"                  // IWYU pragma: keep
+#include "core/ComputedProperty.inl"        // IWYU pragma: keep
+#include "core/Pointers.inl"                // IWYU pragma: keep
+#include "core/Class.inl"                   // IWYU pragma: keep
+#include "core/Union.inl"                   // IWYU pragma: keep
+#include "core/result.hh"                   // IWYU pragma: keep
+#include "core/Optional.inl"                // IWYU pragma: keep
+#include "core/DelegateUnion.inl"           // IWYU pragma: keep
+#include "core/Errors.inl"                  // IWYU pragma: keep
+#include "core/Profiler.inl"                // IWYU pragma: keep
+#include "core/ArrayIterator.inl"           // IWYU pragma: keep
+#include "core/Index.inl"                   // IWYU pragma: keep
+#include "core/Iterable.hh"                 // IWYU pragma: keep
+#include "core/IArray.hh"                   // IWYU pragma: keep
+#include "core/ArrayRef.inl"                // IWYU pragma: keep
+#include "core/IntMath.inl"                 // IWYU pragma: keep
+#include "core/FloatMath.inl"               // IWYU pragma: keep
+#include "core/DoubleMath.inl"              // IWYU pragma: keep
+#include "core/StringRef.inl"               // IWYU pragma: keep
+#include "core/Random.inl"                  // IWYU pragma: keep
+#include "core/Hashing.inl"                 // IWYU pragma: keep
+#include "core/Search.inl"                  // IWYU pragma: keep
+#include "core/Predicates.inl"              // IWYU pragma: keep
 
 namespace cm {}  // namespace cm
 

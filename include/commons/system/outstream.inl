@@ -13,9 +13,35 @@
 */
 
 #pragma once
-#ifdef __inline_sys_header__
+#ifdef __inline_core_header__
 
 namespace cm {
+
+enum class FileOpenMode : u8 {
+    Read = (1 << 0),    // 'r'
+    Write = (1 << 1),   // 'w'
+    Append = (1 << 2),  // 'a'
+    Update = (1 << 3),  // '+'
+    Binary = (1 << 4)   // 'b'
+};
+
+constexpr FileOpenMode operator|(FileOpenMode lhs, FileOpenMode rhs) { return FileOpenMode(u8(lhs) | u8(rhs)); }
+constexpr bool operator&(FileOpenMode lhs, FileOpenMode rhs) { return bool(u8(lhs) & u8(rhs)); }
+
+
+///
+/// Interface for streaming data out of something
+///
+template<typename Derived>
+class InStream {
+public:
+    using Status = StreamStatus;
+
+    constexpr ~InStream() = default;
+    constexpr InStream() = default;
+    constexpr InStream(InStream const&) = default;
+    constexpr InStream& operator=(InStream const&) = default;
+};
 
 ///
 /// Interface for streaming data to a target.
@@ -23,14 +49,6 @@ namespace cm {
 template<typename Derived>
 class IOutStream {
 public:
-    using Status = StreamStatus;
-
-    /// UGH :(
-    constexpr inline Derived* DP(IOutStream const* self) const
-    {
-        return static_cast<Derived*>(const_cast<IOutStream*>(self));
-    }
-
     ///
     /// Represents the OS-dependent line separator.
     ///
@@ -55,13 +73,13 @@ public:
     ///
     constexpr inline auto& writeBytes(void const* data, size_t sizeBytes) const
     {
-        return DP(this)->writeBytes(data, sizeBytes);
+        return static_cast<Derived*>(const_cast<IOutStream*>(this))->writeBytes(data, sizeBytes);
     }
 
     ///
     /// Sends all pending data to the target.
     ///
-    constexpr inline auto& flush() const { return DP(this)->flush(); }
+    constexpr auto& flush() const { return static_cast<Derived*>(const_cast<IOutStream*>(this))->flush(); }
 
     ///
     /// Closes the stream. Returns a bitmask indicating the success of the close operation.
@@ -69,98 +87,74 @@ public:
     /// where close() does nothing (such as StringStream).
     /// For streams where close() does nothing (such as StringStream), close() returns true
     ///
-    constexpr inline Result<Status, Status> close() const { return DP(this)->close(); }
+    [[nodiscard]] constexpr Result<StreamStatus, StreamStatus> close() const
+    {
+        return static_cast<Derived*>(const_cast<IOutStream*>(this))->close();
+    }
 
     ///
     /// Get the general status of the stream
     ///
-    constexpr inline Status status() const { return DP(this)->status(); }
+    [[nodiscard]] constexpr StreamStatus status() const
+    {
+        return static_cast<Derived*>(const_cast<IOutStream*>(this))->status();
+    }
 
     ///
     /// Returns true if the stream has no errors
     ///
-    constexpr inline bool ok() const { return status() == STATUS_OK; }
-
-
-    /// =========================================================================================================================
+    [[nodiscard]] constexpr bool ok() const { return status() == STATUS_OK; }
 
     ///
     /// Print a value to the stream.
-    /// @param arg The value
-    ///
-    inline void print(auto const& value) const
+    /// @param value The value
+    void print(auto const& value) const
     {
-        _print('`', ArrayRef<RefWrapper<Printable const>>{RefWrapper<Printable const>(PrintableT(value))});
+        auto str = String::fmt("`", value);
+        writeBytes(str.cstr(), str.sizeBytes());
+        //_print('`', ArrayRef<RefWrapper<Printable const>>{RefWrapper<Printable const>(PrintableT(value))});
     }
+
+    /// Print a string literal to the stream
     template<int N>
-    inline void print(char const (&str)[N]) const
+    void print(char const (&str)[N]) const
     {
         writeBytes(str, max(N - 1, 0));
     }
 
-    ///
     /// Print a text followed to the stream with a format specifier.
     /// @param sFmt The format string
     /// @param args The arguments
-    ///
-    inline void print(StringRef const& sFmt, auto const&... args) const
+    void print(StringRef const& sFmt, auto const&... args) const
     {
-        this->_print(sFmt, ArrayRef<RefWrapper<Printable const>>{(RefWrapper<Printable const>(PrintableT(args)))...});
+        auto str = String::fmt(sFmt, args...);
+        writeBytes(str.cstr(), str.sizeBytes());
+        //_print(sFmt, ArrayRef<RefWrapper<Printable const>>{(RefWrapper<Printable const>(PrintableT(args)))...});
     }
 
-    /// =========================================================================================================================
-
-    ///
     /// Print a value followed by a newline to the stream.
-    /// @param arg The value
-    ///
-    inline void println(auto const& value) const
+    /// @param value The value
+    void println(auto const& value) const
     {
-        this->print(value);
-        this->print(LS);
-    }
-    template<int N>
-    inline void println(char const (&str)[N]) const
-    {
-        this->writeBytes(str, max(N - 1, 0));
-        this->writeBytes(LS.data(), LS.sizeBytes());
+        print(value);
+        print(LS);
     }
 
-    ///
+    /// Prints a string literal to the stream followed by a newline.
+    template<int N>
+    void println(char const (&str)[N]) const
+    {
+        writeBytes(str, max(N - 1, 0));
+        print(LS);
+    }
+
     /// Print a text followed by a newline to the stream with a format specifier.
     /// @param sFmt The format string
     /// @param args The arguments
-    ///
-    inline void println(StringRef sFmt, auto const&... args) const { print(sFmt, args...), print(LS); }
-
-
-private:
-    void _print(StringRef const& format, ArrayRef<RefWrapper<Printable const>> const& objects) const
+    void println(StringRef sFmt, auto const&... args) const
     {
-        auto fmtIter = format.begin();
-        auto objIter = objects.begin();
-
-        while (fmtIter.isNotEnd() && *fmtIter != '`') {
-            char ch = *fmtIter;
-            this->writeBytes(&ch, sizeof(char));
-            ++fmtIter;
-        }
-        while (objIter.isNotEnd()) {
-            Assert(fmtIter != format.end() && *fmtIter == '`', "More arguments than specified in format string");
-
-            String str;
-            (*objIter)->output(str);
-            this->writeBytes(str.cstr(), str.sizeBytes());
-
-            ++objIter;
-            ++fmtIter;
-
-            while (fmtIter.isNotEnd() && *fmtIter != '`') {
-                char ch = *fmtIter;
-                this->writeBytes(&ch, sizeof(char));
-                ++fmtIter;
-            }
-        }
+        print(sFmt, args...);
+        print(LS);
     }
 };
 

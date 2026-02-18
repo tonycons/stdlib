@@ -13,51 +13,41 @@
 */
 
 #pragma once
-#ifdef __inline_sys_header__
+#ifdef __inline_core_header__
+#include "linux/linuxapi.inl"
 
 namespace cm {
 
-///
-/// Bitmask representing the error states of the stream.
-///
-enum [[clang::flag_enum]] StreamStatus : u64 {
-    STATUS_OK = 0,
-    STATUS_FAILED_INIT = (1 << 0),
-    STATUS_FAILED_WRITE = (1 << 1),
-    STATUS_FAILED_FLUSH = (1 << 2),
-    STATUS_NOT_ALL_BYTES_FLUSHED = (1 << 3),
+struct StreamStatus : IEquatable<StreamStatus>
+{
+    int code = 0;
+    StringRef codeName = "";
+    StringRef extMessage = "";
 
-    // The last operation failed because the stream is invalid
-    STATUS_ERR_INVALID = (1 << 4),
+    constexpr StreamStatus(StreamStatus const&) = default;
+    constexpr StreamStatus(StreamStatus&&) = default;
+    constexpr StreamStatus& operator=(StreamStatus const&) = default;
+    constexpr StreamStatus& operator=(StreamStatus&&) = default;
+    constexpr explicit StreamStatus(int const code)
+        : code(code), codeName(linuxErrCodes[code].valueOr("")), extMessage([&] {
+              auto const cstr = strerror(code);
+              auto const len = strlen(cstr);
+              return StringRef(cstr, len);
+          }())
+    {}
+    constexpr StreamStatus(int const code, StringRef const codeName, StringRef const extMessage)
+        : code(code), codeName(codeName), extMessage(extMessage)
+    {}
 
-    // The last operation was interrupted by a signal before it could complete.
-    STATUS_ERR_INTERRUPT = (1 << 5),
-
-    // The last operation failed due to an I/O error.
-    STATUS_ERR_IO = (1 << 6),
-
-    // The last operation failed due to an unknown error.
-    STATUS_ERR_UNKNOWN = (1 << 7),
-
-    STATUS_ERR_ACCESS = (1 << 8),
-    STATUS_ERR_BUSY = (1 << 9),
-    STATUS_ERR_QUOTA = (1 << 10),
-
-    STATUS_ERR_ALREADY_EXISTS = (1 << 11),
-
-    // The operation failed because the type of the stream might not support that operation.
-    STATUS_ERR_UNSUPPORTED = (1 << 12),
-
-    STATUS_ERR_LOOP = (1 << 13),
-    STATUS_ERR_LIMIT = (1 << 14),
-
-    STATUS_ERR_NOT_FOUND = (1 << 15),
-    STATUS_ERR_MEMORY = (1 << 16),
-
-
-    // The last operation failed for any reason
-    STATUS_ANY_ERR = 0xffff'ffff'ffff'fffe,
+    [[nodiscard]]
+    constexpr bool equals(StreamStatus const& other) const
+    {
+        return other.code == code;
+    }
 };
+
+constexpr inline auto STATUS_OK = StreamStatus(0, "Ok", "Ok");
+
 
 }  // namespace cm
 

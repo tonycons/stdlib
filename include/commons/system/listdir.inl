@@ -13,7 +13,7 @@
 */
 
 #pragma once
-#ifdef __inline_sys_header__
+#ifdef __inline_core_header__
 
 namespace cm {
 

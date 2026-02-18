@@ -15,6 +15,12 @@
 #pragma once
 #ifdef __inline_core_header__
 
+#if defined(__x86_64__) && (defined(__SSE4_2__) || defined(__CRC32__))
+#define CM_HAS_HARDWARE_CRC32
+#elif defined(__aarch64__) && defined(__ARM_FEATURE_CRC32)
+#define CM_HAS_HARDWARE_CRC32
+#else
+#endif
 
 namespace cm {
 
@@ -30,14 +36,16 @@ struct Crc32
 
     /**
      * @brief The table of constants used in the software version of the hasher.
-     * Using the Castagnoli table allows the software version to match with the hardware.
+     * Using the CASTAGNOLI table allows the software version to match with the hardware.
      * https://docs.rs/crc/1.6.0/crc/crc32/constant.CASTAGNOLI_TABLE.html
      */
     constexpr static auto const& table()
     {
         constexpr static VectorU32x<256> tbl = {
         // clang-format off
-#include HEADER(resources/crc32_castagnoli_table.csv)
+#include "../../resources/crc32_castagnoli_table.csv"
+
+
             // clang-format on
         };
         return tbl;
@@ -48,7 +56,7 @@ struct Crc32
     ///
     constexpr static u32 hash8(u8 value, u32 seed) noexcept
     {
-#if (__x86_64__ || __aarch64__)
+#ifdef CM_HAS_HARDWARE_CRC32
         if consteval
 #endif
         {
@@ -56,7 +64,7 @@ struct Crc32
             auto const hash = seed;
             return tbl[(hash ^ value) & 0xffu] ^ (hash >> 8u);
         }
-#if (__x86_64__ || __aarch64__)
+#ifdef CM_HAS_HARDWARE_CRC32
         else {
 #if __x86_64__
             return static_cast<u32>(__builtin_ia32_crc32qi(seed, value));
@@ -73,7 +81,7 @@ struct Crc32
     ///
     constexpr static u32 hash16(u16 value, u32 seed) noexcept
     {
-#if (__x86_64__ || __aarch64__)
+#ifdef CM_HAS_HARDWARE_CRC32
         if consteval
 #endif
         {
@@ -82,7 +90,7 @@ struct Crc32
             seed = tbl[(seed ^ bit_cast<VectorU8x<2>>(value)[1]) & 0xffu] ^ (seed >> 8u);
             return seed;
         }
-#if (__x86_64__ || __aarch64__)
+#ifdef CM_HAS_HARDWARE_CRC32
         else {
 #if __x86_64__
             return static_cast<u32>(__builtin_ia32_crc32hi(seed, value));
@@ -98,7 +106,7 @@ struct Crc32
     ///
     constexpr static u32 hash32(u32 value, u32 seed) noexcept
     {
-#if (__x86_64__ || __aarch64__)
+#ifdef CM_HAS_HARDWARE_CRC32
         if consteval
 #endif
         {
@@ -109,7 +117,7 @@ struct Crc32
             seed = tbl[(seed ^ bit_cast<VectorU8x<4>>(value)[3]) & 0xffu] ^ (seed >> 8u);
             return seed;
         }
-#if (__x86_64__ || __aarch64__)
+#ifdef CM_HAS_HARDWARE_CRC32
         else {
 #if __x86_64__
             return static_cast<u32>(__builtin_ia32_crc32si(seed, value));
@@ -126,7 +134,7 @@ struct Crc32
     ///
     constexpr static u32 hash64(u64 value, u32 seed) noexcept
     {
-#if (__x86_64__ || __aarch64__)
+#ifdef CM_HAS_HARDWARE_CRC32
         if consteval
 #endif
         {
@@ -141,7 +149,7 @@ struct Crc32
             seed = tbl[(seed ^ bit_cast<VectorU8x<8>>(value)[7]) & 0xffu] ^ (seed >> 8u);
             return seed;
         }
-#if (__x86_64__ || __aarch64__)
+#ifdef CM_HAS_HARDWARE_CRC32
         else {
 #if __x86_64__
             return static_cast<u32>(__builtin_ia32_crc32di(seed, value));
@@ -162,11 +170,11 @@ struct Crc32
         do {
             static_assert(sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4);
             if constexpr (sizeof(T) == 1) {
-                seed = hash8(u8(*in), seed);
+                seed = hash8(static_cast<u8>(*in), seed);
             } else if constexpr (sizeof(T) == 2) {
-                seed = hash16(u16(*in), seed);
+                seed = hash16(static_cast<u16>(*in), seed);
             } else if constexpr (sizeof(T) == 4) {
-                seed = hash32(u32(*in), seed);
+                seed = hash32(static_cast<u32>(*in), seed);
             }
         } while (*in++);
         return seed;

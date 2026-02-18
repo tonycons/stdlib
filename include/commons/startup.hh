@@ -18,17 +18,8 @@
 
 #pragma once
 
-// clang-format off
-#ifndef HEADER
-#define __module_path_str_helper(x) #x
-#define __module_path_str(x) __module_path_str_helper(x)
-#define __base_path0 commons
-#define HEADER(file) __module_path_str(__base_path0/file)
-#endif
+#include "system.hh"  // IWYU pragma: keep
 
-#include HEADER(system.hh)  // IWYU pragma: keep
-
-// clang-format on
 
 #if __has_feature(address_sanitizer)
 #include <sanitizer/asan_interface.h>
@@ -39,6 +30,7 @@
 #if __linux__
 #include <signal.h>  // IWYU pragma: keep
 
+extern "C" usize malloc_usable_size(void*);
 extern "C" void* malloc(size_t);
 extern "C" void* aligned_alloc(size_t, size_t);
 extern "C" void free(void*);
@@ -51,6 +43,11 @@ inline u32 cm::ND_PRNG::_state;
 
 
 namespace cm {
+
+struct
+{
+    usize bytesAllocated;
+} static MemoryStats;
 
 [[noreturn]]
 inline void ::cm::panic(char const* message, char const* reason, SourceLocation src)
@@ -117,6 +114,9 @@ inline void Profiler::printStackTrace()
         return;
 
     startup::s_printed = true;
+    char buf[48];
+    __builtin_sprintf(buf, "\nMemory: %zu bytes", MemoryStats.bytesAllocated);
+    _emergencyPrint(buf);
     _emergencyPrint("\nStack Trace:\n");
 #if __has_feature(address_sanitizer)
     __sanitizer_print_stack_trace();
@@ -155,7 +155,7 @@ inline void Profiler::printStackTrace()
  * instrumented themselves.
  */
 extern "C" [[maybe_unused, gnu::no_instrument_function]]
-inline void __cyg_profile_func_enter(void* funcAddr, void* callAddr)
+inline void __cyg_profile_func_enter(void* funcAddr, void* callAddr)  // NOLINT
 {
     startup::s_currentStackFrameIndex++;
     if (startup::s_currentStackFrameIndex >= startup::MAX_PROFILER_STACK_FRAMES) {
@@ -172,7 +172,7 @@ inline void __cyg_profile_func_enter(void* funcAddr, void* callAddr)
  * instrumented themselves.
  */
 extern "C" [[maybe_unused, gnu::no_instrument_function]]
-inline void __cyg_profile_func_exit(void* funcAddr, void* callAddr)
+inline void __cyg_profile_func_exit(void* funcAddr, void* callAddr)  // NOLINT
 {
     (void)funcAddr;
     (void)callAddr;
@@ -191,8 +191,7 @@ inline void __cyg_profile_func_exit(void* funcAddr, void* callAddr)
 [[gnu::constructor(100), gnu::no_instrument_function]]
 inline void signalHandlers()
 {
-
-    struct sigaction const segFaultHandler{
+    constexpr struct sigaction segFaultHandler{
 #ifdef sa_handler
 #define old_sa_handler sa_handler
 #undef sa_handler
@@ -211,7 +210,7 @@ inline void signalHandlers()
         .sa_flags = 0,
         .sa_restorer = nullptr};
 
-    struct sigaction const trapHandler{
+    constexpr struct sigaction trapHandler{
 #ifdef sa_handler
 #undef sa_handler
         .__sigaction_handler.sa_handler
@@ -236,10 +235,10 @@ inline void signalHandlers()
 }  // namespace cm
 
 
-constexpr std::align_val_t DEFAULT_ALIGNMENT = std::align_val_t(8);
+constexpr auto DEFAULT_ALIGNMENT = static_cast<std::align_val_t>(8);
 
 
-inline void* newImpl(std::size_t size, std::align_val_t alignment) noexcept
+inline void* newImpl(std::size_t const size, std::align_val_t alignment)
 {
     void* ptr;
     if (alignment == DEFAULT_ALIGNMENT) {
@@ -247,20 +246,40 @@ inline void* newImpl(std::size_t size, std::align_val_t alignment) noexcept
     } else {
         ptr = aligned_alloc(static_cast<size_t>(alignment), size);
     }
+    cm::MemoryStats.bytesAllocated += size;
     ::cm::Assert(ptr);
+
+    //__builtin_printf("allocated %p + %zu\n", ptr, size);
+
     return ptr;
 }
 
-inline void* newImplNothrow(std::size_t size, std::align_val_t alignment) noexcept
+inline void* newImplNothrow(std::size_t const size, std::align_val_t alignment) noexcept
 {
-    return aligned_alloc(static_cast<size_t>(alignment), size);
+    void* ptr = aligned_alloc(static_cast<size_t>(alignment), size);
+    ::cm::MemoryStats.bytesAllocated += size;
+    ::cm::Assert(ptr);
+
+    //__builtin_printf("allocated %p + %zu\n", ptr, size);
+
+    return ptr;
     // return GC_alloc(size, size_t(alignment));
 }
 
 inline void deleteImpl(void* ptr)
 {
+
     // GC_free(ptr);
+    auto sz = malloc_usable_size(ptr);
     free(ptr);
+
+    //__builtin_printf("deleting %p\n", ptr);
+
+
+    if (sz > ::cm::MemoryStats.bytesAllocated) {
+        sz = ::cm::MemoryStats.bytesAllocated;
+    }
+    ::cm::MemoryStats.bytesAllocated -= sz;
     (void)ptr;
 }
 

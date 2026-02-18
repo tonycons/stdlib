@@ -41,13 +41,13 @@ public:
 
     template<typename... Args>
     requires (Constructible<SuccessType, Args...>)
-    explicit constexpr Result(ResultSuccessTag, Args&&... args)
+    constexpr Result(ResultSuccessTag, Args&&... args)
         : _u(SuccessWrapper{SuccessType(Forward<Args>(args)...)})
     {}
 
     template<typename... Args>
     requires (Constructible<ErrorType, Args...>)
-    explicit constexpr Result(ResultErrorTag, Args&&... args)
+    constexpr Result(ResultErrorTag, Args&&... args)
         : _u(ErrorWrapper{ErrorType(Forward<Args>(args)...)})
     {}
 
@@ -79,9 +79,52 @@ public:
         }
     }
 
+    FORCEINLINE constexpr auto ifError(auto then_) const
+    {
+        if (isErr()) {
+            then_(_u.error);
+        }
+    }
+
+    constexpr ErrorType errVal() const
+    {
+        Assert(isErr());
+        return _u.template ref<ErrorWrapper>().error;
+    }
+
+    constexpr SuccessType okVal() const
+    {
+        Assert(isOk());
+        return _u.template ref<SuccessWrapper>().success;
+    }
+
+    constexpr ErrorType& errRef()
+    {
+        Assert(isErr());
+        return _u.template ref<ErrorWrapper>().error;
+    }
+
+    constexpr ErrorType const& errRef() const
+    {
+        Assert(isErr());
+        return _u.template ref<ErrorWrapper>().error;
+    }
+
+    constexpr SuccessType& okRef()
+    {
+        Assert(isOk());
+        return _u.template ref<SuccessWrapper>().success;
+    }
+
+    constexpr SuccessType const& okRef() const
+    {
+        Assert(isOk());
+        return _u.template ref<SuccessWrapper>().success;
+    }
+
 private:
     // This works around the edge case where successType and ErrorType being the same type, in which case they cannot be
-    // stored in a tagged union, so we have to create a wrapper class for them
+    // stored in a tagged union, so we have to create a wrapper class for them.
     struct SuccessWrapper
     {
         SuccessType success;
@@ -95,39 +138,49 @@ private:
 
 // DO:  template<typename T> instead
 
-template<typename... Args>
-struct Ok
-{
-    explicit constexpr Ok(Args... args)
-        : args_(Forward<Args>(args)...)
-    {}
+// template<typename... Args>
+// struct Ok
+// {
+//     explicit constexpr Ok(Args... args)
+//         : args_(Forward<Args>(args)...)
+//     {}
+//
+//     template<typename ResultType>
+//     constexpr operator ResultType() const
+//     {
+//         struct Dummy
+//         {
+//             operator ResultType()
+//             {
+//
+//             }
+//         };
+//         return ResultType(ResultSuccessTag{}, args_.template construct<typename ResultType::SuccessType>());
+//     }
+//
+// private:
+//     Tuple<Args&&...> args_;
+// };
 
-    template<typename ResultType>
-    constexpr operator ResultType() const
-    {
-        return ResultType(ResultSuccessTag{}, args_.template construct<typename ResultType::SuccessType>());
-    }
+#define Ok(...) {ResultSuccessTag{}, __VA_ARGS__}
 
-private:
-    Tuple<Args...> args_;
-};
 
-template<typename... Args>
-Ok(Args&...) -> Ok<Args...>;
-template<typename... Args>
-Ok(Args&&...) -> Ok<Args...>;
-
-template<>
-struct Ok<>
-{
-    constexpr explicit Ok() = default;
-
-    template<typename ResultType>
-    constexpr operator ResultType() const
-    {
-        return ResultType(ResultSuccessTag{});
-    }
-};
+// template<typename... Args>
+// Ok(Args&...) -> Ok<Args...>;
+// template<typename... Args>
+// Ok(Args&&...) -> Ok<Args&&...>;
+//
+// template<>
+// struct Ok<>
+// {
+//     constexpr explicit Ok() = default;
+//
+//     template<typename ResultType>
+//     constexpr operator ResultType() const
+//     {
+//         return ResultType(ResultSuccessTag{});
+//     }
+// };
 
 template<typename... Args>
 struct Err

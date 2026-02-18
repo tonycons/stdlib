@@ -11,11 +11,9 @@
    or implied. See the License for the specific language governing permissions and limitations under
    the License.
 */
-
 #ifndef __inline_core_header__
 #warning Do not include this file directly; include "core.hh" instead
 #else
-
 
 namespace cm {
 
@@ -23,15 +21,11 @@ namespace cm {
 /// The base class for all array-type collections. Defines all read-only methods for array types.
 ///
 template<typename T>
-struct IArray : public Iterable<IArray<T>>,
-                public LinearIteratorComponent<IArray<T>, T const>,
-                public IEquatable<IArray<T>>,
-                public IComparable<IArray<T>>
+struct IArray : Iterable<IArray<T>>,
+                LinearIteratorComponent<IArray<T>, T const>,
+                IEquatable<IArray<T>>,
+                IComparable<IArray<T>>
 {
-private:
-    using Iterable = Iterable<IArray<T>> const&;
-
-public:
     constexpr IArray() = default;
     constexpr IArray(IArray const&) = default;
     constexpr IArray& operator=(IArray const&) = default;
@@ -66,10 +60,10 @@ public:
     ///
     /// Performs a deep equality comparison of two arrays.
     ///
-    constexpr bool equals(IArray<T> const& other)
+    constexpr bool equals(IArray const& other)
     {
         if consteval {
-            return Iterable(*this).equals(other);
+            return Iterable<IArray>::equals(other);
         } else {
             if (this == &other) {
                 return true;
@@ -83,7 +77,7 @@ public:
                 return __builtin_memcmp(data(), other.data(), sizeBytes()) == 0;
                 UNSAFE_END;
             } else {
-                return Iterable(*this).equals(other);
+                return Iterable<IArray>::equals(other);
             }
         }
     }
@@ -91,10 +85,10 @@ public:
     ///
     /// Performs a deep comparison of two arrays.
     ///
-    constexpr int compare(IArray<T> const& other)
+    constexpr int compare(IArray const& other)
     {
         if consteval {
-            return Iterable(*this).compare(other);
+            return Iterable<IArray>::compare(other);
         } else {
             // At runtime, select the C library memcmp if possible, which is highly optimized.
             if constexpr (IsPrimitiveData<T>) {
@@ -116,7 +110,7 @@ public:
                 }
                 return 0;
             } else {
-                return Iterable(*this).compare(other);
+                return Iterable<IArray>::compare(other);
             }
         }
     }

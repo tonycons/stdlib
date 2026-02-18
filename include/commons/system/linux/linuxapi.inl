@@ -16,24 +16,41 @@
 */
 
 #pragma once
-#ifdef __inline_sys_header__
+#ifdef __inline_core_header__
+
+namespace cm {
+constexpr inline auto linuxErrCodes = FixedMap(
 
 #define EOF (-1)
-
-#define EPERM 1         /* Operation not permitted */
-#define ENOENT 2        /* No such file or directory */
-#define ESRCH 3         /* No such process */
-#define EINTR 4         /* Interrupted system call */
-#define EIO 5           /* I/O error */
-#define ENXIO 6         /* No such device or address */
-#define E2BIG 7         /* Argument list too long */
-#define ENOEXEC 8       /* Exec format error */
-#define EBADF 9         /* Bad file number */
-#define ECHILD 10       /* No child processes */
-#define EAGAIN 11       /* Try again */
-#define ENOMEM 12       /* Out of memory */
-#define EACCES 13       /* Permission denied */
-#define EFAULT 14       /* Bad address */
+    EOF, "EOF",
+#define EPERM 1 /* Operation not permitted */
+    EPERM, "EPERM",
+#define ENOENT 2 /* No such file or directory */
+    ENOENT, "ENOENT",
+#define ESRCH 3 /* No such process */
+    ESRCH, "ESRCH",
+#define EINTR 4 /* Interrupted system call */
+    EINTR, "EINTR",
+#define EIO 5 /* I/O error */
+    EIO, "EIO",
+#define ENXIO 6 /* No such device or address */
+    ENXIO, "ENXIO",
+#define E2BIG 7 /* Argument list too long */
+    E2BIG, "E2BIG",
+#define ENOEXEC 8 /* Exec format error */
+    ENOEXEC, "ENOEXEC",
+#define EBADF 9 /* Bad file number */
+    EBADF, "EBADF",
+#define ECHILD 10 /* No child processes */
+    ECHILD, "ECHILD",
+#define EAGAIN 11 /* Try again */
+    EAGAIN, "EAGAIN",
+#define ENOMEM 12 /* Out of memory */
+    ENOMEM, "ENOMEM",
+#define EACCES 13 /* Permission denied */
+    EACCES, "EACCES",
+#define EFAULT 14 /* Bad address */
+    EFAULT, "EFAULT"
 #define ENOTBLK 15      /* Block device required */
 #define EBUSY 16        /* Device or resource busy */
 #define EEXIST 17       /* File exists */
@@ -197,6 +214,8 @@
 #ifndef O_ASYNC
 #define O_ASYNC 020000
 #endif
+);
+}  // namespace cm
 
 struct FILE;
 
@@ -204,5 +223,5 @@ extern "C" int errno;
 extern "C" FILE* popen(char const* __command, char const* __modes);
 extern "C" int pclose(FILE* __stream);
 extern "C" int fgetc(FILE* __stream);
-
+extern "C" char* strerror(int);
 #endif

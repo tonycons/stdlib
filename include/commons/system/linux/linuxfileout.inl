@@ -13,109 +13,180 @@
 */
 
 #pragma once
-#ifdef __inline_sys_header__
+#ifdef __inline_core_header__
+
+namespace LinuxFileStreamHelper {
+///
+/// Translates Linux errno values in the context of files into (system-independent) Status codes
+/// The reason why some distinct Linux errno values map to the same Status value is because not all operating
+/// systems might have the same level of detail, and Status should only represent conditions that are common across
+/// all operating systems. There's always going to be some information loss when you make a system-independent
+/// abstraction.
+///
+inline StreamStatus setStatusFromErrno(StreamStatus& status, int const& err = errno)
+{
+    return status = StreamStatus(err);
+}
+
+}  // namespace LinuxFileStreamHelper
+
+///
+/// Linux implementation of a stream that reads from a file
+///
+struct LinuxFileInStream final : InStream<LinuxFileInStream>, NonCopyable
+{
+    constexpr LinuxFileInStream(LinuxFileInStream&& other) = default;
+    constexpr LinuxFileInStream& operator=(LinuxFileInStream&& other) = default;
+
+    ///
+    /// @param path Path to the file
+    /// @param mode File opening mode
+    ///
+    LinuxFileInStream(String const& path, FileOpenMode const mode)
+    {
+        u64 sysMode = 0;
+        if (mode & FileOpenMode::Read) {
+            sysMode = (mode & FileOpenMode::Update) ? O_RDWR : O_RDONLY;
+        } else if (mode & FileOpenMode::Write) {
+            sysMode = ((mode & FileOpenMode::Read) ? O_RDWR : O_WRONLY) | O_CREAT | O_TRUNC;
+        } else if (mode & FileOpenMode::Append) {
+            sysMode = ((mode & FileOpenMode::Update) ? O_RDWR : O_WRONLY) | O_CREAT | O_APPEND;
+        } else {
+            _status = StreamStatus(EINVAL);
+            return;
+        }
+        if (auto const result =
+                static_cast<i64>(LinuxSyscall(LinuxSyscall.open, reinterpret_cast<u64>(path.cstr()), sysMode));
+            result < 0 && result > -0x1000)
+        {
+            auto const err = static_cast<int>(-result);
+            LinuxFileStreamHelper::setStatusFromErrno(_status, err);
+            _fd = -1;
+        } else {
+            _fd = static_cast<int>(static_cast<unsigned>(result));
+        }
+    }
+
+    ///
+    /// Destructor
+    ///
+    ~LinuxFileInStream() { close(); }
+
+    ///
+    /// @return Status of close
+    ///
+    Result<Status, Status> close()
+    {
+        __builtin_printf("Closed\n");
+        if (auto const result = static_cast<isize>(LinuxSyscall(LinuxSyscall.close, static_cast<usize>(_fd)));
+            result < 0)
+        {
+            auto const err = static_cast<int>(-result);
+            return Err(LinuxFileStreamHelper::setStatusFromErrno(_status, err));
+        }
+        return Ok(_status = STATUS_OK);
+    }
+
+    ///
+    /// Reads bytes from the file into the buffer, attempting to fill the entire buffer if possible
+    /// @tparam BufferType The type of the buffer structure to read into
+    /// @param buffer The buffer to read into
+    /// @return On success, returns the number of bytes read into the buffer (this quantity could be less than the
+    /// capacity of the buffer, if, for example, the size of the file is less than the size of the buffer). On error,
+    /// returns a Status error code.
+    ///
+    template<typename BufferType>
+    Result<usize, Status> readBytes(BufferType& buffer)
+    {
+        auto const result = static_cast<isize>(LinuxSyscall(
+            LinuxSyscall.read, static_cast<usize>(_fd), reinterpret_cast<usize>(buffer.data()), buffer.sizeBytes()));
+        if (result < 0) {
+            auto const err = static_cast<int>(-result);
+            return Err(LinuxFileStreamHelper::setStatusFromErrno(_status, err));
+        }
+        return Ok(static_cast<usize>(result));
+    }
+
+    ///
+    /// @return On success, returns a string containing the contents of the file interpreted as text. On error, returns
+    /// a Status error code.
+    ///
+    template<usize BufferSize = 64>
+    Result<String, Status> readAllAsString()
+    {
+        String str;
+        while (true) {
+            Array<u8, BufferSize> tmp{};
+            auto const result = readBytes(tmp);
+            str.append(StringRef(reinterpret_cast<char const*>(tmp.data()), tmp.sizeBytes() / sizeof(char)));
+            if (result.isErr()) {
+                return Err(result.errVal());
+            }
+            auto const bytesRead = result.okVal();
+            if (bytesRead < BufferSize) {  // This means EOF was reached.
+                break;
+            }
+        }
+        return Ok(str);
+    }
+
+    constexpr Status status() const { return _status; }
+    constexpr bool ok() const { return _status == STATUS_OK; }
+
+    int _fd = 0;
+    Status _status = STATUS_OK;
+};
+
+using FileInStream = LinuxFileInStream;
 
 ///
 /// Linux implementation for a stream that writes to a file
 ///
-struct LinuxFileOutStream final : public IOutStream<LinuxFileOutStream>, public NonCopyable
+struct LinuxFileOutStream final : IOutStream<LinuxFileOutStream>, NonCopyable
 {
     constexpr LinuxFileOutStream(LinuxFileOutStream&& other) = default;
     constexpr LinuxFileOutStream& operator=(LinuxFileOutStream&& other) = default;
 
     int _fd = 0;
-    Status _status = STATUS_OK;
+    StreamStatus _status = STATUS_OK;
     Array<u8> _buffer;
     usize _bufferUsed = 0;
 
-    ///
-    /// Translates Linux errno values in the context of files into (system-independent) Status codes
-    /// The reason why some distinct Linux errno values map to the same Status value is because not all operating
-    /// systems might have the same level of detail, and Status should only represent conditions that are common across
-    /// all operating systems. There's always going to be some information loss when you make a system-independent
-    /// abstraction.
-    ///
-    StreamStatus setStatusFromErrno(StreamStatus& status, int const& err = errno)
-    {
-        switch (err) {
-
-        case EPERM:
-        case EACCES: return status = STATUS_ERR_ACCESS;
-
-        case EBADF: return status = STATUS_ERR_INVALID;
-
-        case ETXTBSY:
-        case EBUSY: return status = STATUS_ERR_BUSY;
-
-        case EDQUOT: return status = STATUS_ERR_QUOTA;
-        case EEXIST: return status = STATUS_ERR_ALREADY_EXISTS;
-
-        // Cases when an operation is "unsupported"
-        case ENOTTY:  // Not a typewriter
-        case EISDIR:  // Is a directory (so it can't itself be written to)
-            return status = STATUS_ERR_UNSUPPORTED;
-
-        case EINTR: return status = STATUS_ERR_INTERRUPT;
-        case EIO: return status = STATUS_ERR_IO;
-        case ELOOP: return status = STATUS_ERR_LOOP;
-
-        case EMLINK:
-        case EMFILE: return status = STATUS_ERR_LIMIT;
-
-        // Cases when "memory runs out"
-        case ENOMEM:  // Now technically this is running out of RAM, not disk..
-        case EFBIG:   // File too big
-        case ENOSPC:  // No space on disk
-            return status = STATUS_ERR_MEMORY;
-
-        case ENODEV:  // No such device
-        case ESRCH:   // No such process
-            return status = STATUS_ERR_NOT_FOUND;
-
-        default: return status = STATUS_ERR_UNKNOWN;
-        }
-    }
 
     ///
     /// Creates a file descriptor for writing, assuming file exists
     /// @param path Absolute path to the file
     /// @param bufferCapacity An optional capacity for the buffer, default 4KB
     ///
-    inline LinuxFileOutStream(String const& path, Optional<usize> const& bufferCapacity = None)
+    explicit LinuxFileOutStream(StringRef const& path, Optional<usize> const& bufferCapacity = None)
         : _buffer(bufferCapacity.valueOr<usize>(4_KB))
     {
         // mode_t mode = S_IRUSR | S_IWUSR;
-        auto result = i64(LinuxSyscall(LinuxSyscall.open, u64(path.cstr()), u64(O_WRONLY)));
+        auto const result =
+            static_cast<i64>(LinuxSyscall(LinuxSyscall.open, reinterpret_cast<u64>(path.cstr()), O_WRONLY));
 
         if (result < 0 && result > -0x1000) {
-            auto err = int(-result);
-            setStatusFromErrno(_status, err);
+            auto const err = static_cast<int>(-result);
+            LinuxFileStreamHelper::setStatusFromErrno(_status, err);
             _fd = -1;
         } else {
-            _fd = int(unsigned(result));
+            _fd = static_cast<int>(static_cast<unsigned>(result));
         }
     }
 
-
-    ///
     /// Destructor
-    ///
-    [[clang::noinline]]
-    inline ~LinuxFileOutStream()
+    ~LinuxFileOutStream()
     {
         if (_fd < 3) {
             return;
         }
-
         // TODO: maybe warn if file destroyed without flushing? if _bufferUsed != 0 ...
         this->flush();
         (void)this->close();
     }
 
     ///
-    ///
-    [[clang::noinline]]
-    inline LinuxFileOutStream& writeBytes(void const* data, size_t sizeBytes)
+    LinuxFileOutStream& writeBytes(void const* data, usize const sizeBytes)
     {
         // If the buffer will overflow after writing this data, then write to the file and clear the buffer
         if (_bufferUsed + sizeBytes >= _buffer.length()) {
@@ -140,20 +211,21 @@ struct LinuxFileOutStream final : public IOutStream<LinuxFileOutStream>, public 
     }
 
     // Wrap the write system call to avoid repeating code
-    bool doWrite(void const* buffer, size_t size)
+    bool doWrite(void const* buffer, size_t const size)
     {
         if (size == 0) {
             return true;
         }
-        auto r = ssize_t(LinuxSyscall(LinuxSyscall.write, usize(_fd), usize(buffer), size));
+        auto const r = static_cast<ssize_t>(
+            LinuxSyscall(LinuxSyscall.write, static_cast<usize>(_fd), reinterpret_cast<usize>(buffer), size));
         if (r < 0) {
-            int err = int(-r);
-            _status = setStatusFromErrno(_status, err);
+            auto const err = static_cast<int>(-r);
+            _status = LinuxFileStreamHelper::setStatusFromErrno(_status, err);
             return false;
         }
         [[assume(r >= 0)]];
-        if (size != usize(r)) {
-            _status = STATUS_NOT_ALL_BYTES_FLUSHED;
+        if (size != static_cast<usize>(r)) {
+            _status = StreamStatus(EADV);
             return false;
         }
         return true;
@@ -169,38 +241,37 @@ struct LinuxFileOutStream final : public IOutStream<LinuxFileOutStream>, public 
     ///
     /// Closes the file descriptor.
     ///
-    inline Result<Status, Status> close()
+    Result<StreamStatus, StreamStatus> close()
     {
-        auto result = isize(LinuxSyscall(LinuxSyscall.close, usize(_fd)));
-        if (result < 0) {
-            int err = int(-result);
-            return Err(setStatusFromErrno(_status, err));
-        } else {
-            return Ok(_status = STATUS_OK);
+        if (auto const result = static_cast<isize>(LinuxSyscall(LinuxSyscall.close, static_cast<usize>(_fd)));
+            result < 0)
+        {
+            auto const err = static_cast<int>(-result);
+            return Err(LinuxFileStreamHelper::setStatusFromErrno(_status, err));
         }
+        return Ok(_status = STATUS_OK);
     }
 
-
     ///
-    /// Returns the status
+    /// Returns the status.
     ///
-    Status status() const { return _status; }
+    StreamStatus status() const { return _status; }
 };
 
 ///
 /// A stream that writes to a file.
 ///
-struct FileOutStream : public Optional<LinuxFileOutStream>
+struct FileOutStream : Optional<LinuxFileOutStream>
 {
-    using Optional<LinuxFileOutStream>::Optional;
+    using Optional::Optional;
 
     ///
     /// Creates a file descriptor for writing, assuming file exists
     /// @param path Absolute path to the file
     /// @param bufferCapacity An optional capacity for the buffer, default 4KB
     ///
-    FileOutStream(String const& path, Optional<usize> const& bufferCapacity = 4_KB)
-        : Optional<LinuxFileOutStream>(LinuxFileOutStream(path, bufferCapacity))
+    explicit FileOutStream(StringRef const& path, Optional<usize> const& bufferCapacity = 4_KB)
+        : Optional(LinuxFileOutStream(path, bufferCapacity))
     {}
 
     ~FileOutStream() = default;

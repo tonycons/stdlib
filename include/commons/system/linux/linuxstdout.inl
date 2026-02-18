@@ -13,14 +13,14 @@
 */
 
 #pragma once
-#ifdef __inline_sys_header__
+#ifdef __inline_core_header__
 
 ///
 /// Linux implementation for a stream that writes to standard output
 ///
 class LinuxStandardOutStream : public IOutStream<LinuxStandardOutStream> {
 protected:
-    Status _state = STATUS_OK;
+    StreamStatus _state = STATUS_OK;
     int _fd = 1;
 
 public:
@@ -29,11 +29,11 @@ public:
     consteval inline LinuxStandardOutStream& operator=(LinuxStandardOutStream const&) = default;
 
 
-    auto const& writeBytes(void const* data, size_t sizeBytes) const
+    auto const& writeBytes(void const* data, usize const sizeBytes) const
     {
         // Assert(_buffer.sizeBytes() >= 0);
         // auto r =
-        (LinuxSyscall(LinuxSyscall.write, usize(_fd), usize(data), usize(sizeBytes)));
+        LinuxSyscall(LinuxSyscall.write, static_cast<usize>(_fd), reinterpret_cast<usize>(data), sizeBytes);
 
         // if (r < 0) {
         //     //_state = STATUS_FAILED_FLUSH;

@@ -16,7 +16,7 @@
 */
 
 #pragma once
-#ifdef __inline_sys_header__
+#ifdef __inline_core_header__
 
 struct LinuxShell : NonCopyable
 {
@@ -26,7 +26,7 @@ struct LinuxShell : NonCopyable
     constexpr ~LinuxShell() noexcept = default;
 
 
-    inline int execute(String const& command, Optional<Function<void(void const*, usize)>> output = None) const
+    inline int execute(String const& command, Optional<CFunction<void(void const*, usize)>> output = None) const
     {
         //__builtin_printf("Command is this: %s\n", command.cstr());
         auto s = _escapeCommand(command);
@@ -44,7 +44,12 @@ struct LinuxShell : NonCopyable
         return pclose(fp);
     }
 
-    inline String _escapeCommand(String const& command) const { return command.replace("\"", "\\\""); }
+    inline String _escapeCommand(String const& command) const
+    {
+        String copy{command};
+        copy.replace("\"", "\\\"");
+        return copy;
+    }
 };
 
 constexpr inline auto shell = LinuxShell();

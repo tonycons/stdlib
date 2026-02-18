@@ -21,34 +21,34 @@ add_executable(commons-test)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     target_compile_options(commons-test PUBLIC
-        -Weverything
-        -fsafe-buffer-usage-suggestions
-        -Wnonnull
-        -Wno-global-constructors
-        -Wno-missing-prototypes
-        -Wno-extra-semi
-        -Wno-extra-semi-stmt
-        -Wno-c++20-compat
-        -Wno-c++98-compat
-        -Wno-c++98-compat-pedantic
-        -Wno-c99-designator
-        -Wno-unused-macros
-        -Wno-gnu-case-range
-        -Wno-shadow-field-in-constructor
-        -Wno-dollar-in-identifier-extension
-        -Wno-padded
-        -Wno-weak-vtables
-        -Wno-exit-time-destructors
-        -Wno-reserved-identifier
-        -Wno-extra-qualification
-        -Wno-bit-int-extension
-        -Wno-header-hygiene
+            -Weverything
+            -fsafe-buffer-usage-suggestions
+            -Wnonnull
+            -Wno-global-constructors
+            -Wno-missing-prototypes
+            -Wno-extra-semi
+            -Wno-extra-semi-stmt
+            -Wno-c++20-compat
+            -Wno-c++98-compat
+            -Wno-c++98-compat-pedantic
+            -Wno-c99-designator
+            -Wno-unused-macros
+            -Wno-gnu-case-range
+            -Wno-shadow-field-in-constructor
+            -Wno-dollar-in-identifier-extension
+            -Wno-padded
+            -Wno-weak-vtables
+            -Wno-exit-time-destructors
+            -Wno-reserved-identifier
+            -Wno-extra-qualification
+            -Wno-bit-int-extension
+            -Wno-header-hygiene
     )
 elseif (CMAKECXX_COMPILER_ID STREQUAL "MSVC")
-    target_compile_options(commons-test PUBLIC 
-        /W4
+    target_compile_options(commons-test PUBLIC
+            /W4
     )
-endif()
+endif ()
 
 target_include_directories(commons-test PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_sources(commons-test PUBLIC ${WS}/test/main.cc)

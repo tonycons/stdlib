@@ -15,52 +15,32 @@
    Description: Exports all of the OS-related functionality.
 */
 
-
-#pragma once
-
 // clang-format off
 
-#ifndef HEADER
-#define __module_path_str_helper(x) #x
-#define __module_path_str(x) __module_path_str_helper(x)
-#define __base_path0 commons
-#define HEADER(file) __module_path_str(__base_path0/file)
-#endif
-
-
-#include HEADER(core.hh)         // IWYU pragma: keep
-#include HEADER(datastructs.hh)  // IWYU pragma: keep
-
-#define __inline_sys_header__
-#include HEADER(system/streamstatus.inl)   // IWYU pragma: keep
-#include HEADER(system/outstream.inl)      // IWYU pragma: keep
-#include HEADER(system/stringstream.inl)   // IWYU pragma: keep
-#include HEADER(system/listdir.inl)        // IWYU pragma: keep
-#include HEADER(system/shell.inl)          // IWYU pragma: keep
+#pragma once
+#include "core.hh"                            // IWYU pragma: keep
+#include "datastructs.hh"                     // IWYU pragma: keep
+#define __inline_core_header__
+#include "system/streamstatus.inl"            // IWYU pragma: keep
+#include "system/outstream.inl"               // IWYU pragma: keep
+#include "system/stringstream.inl"            // IWYU pragma: keep
+#include "system/listdir.inl"                 // IWYU pragma: keep
+#include "system/shell.inl"                   // IWYU pragma: keep
 
 #ifdef __linux__
-#undef linux // who thought this was a good idea? it conflicts with this filepath!
-#include HEADER(system/linux/linuxapi.inl)  // IWYU pragma: keep
+    #undef linux // who thought this was a good idea? it conflicts with this filepath!
+    #include "system/linux/linuxapi.inl"      // IWYU pragma: keep
 
-namespace cm {
-#include HEADER(system/linux/linuxsyscall.inl)  // IWYU pragma: keep
-#include HEADER(system/linux/linuxstdout.inl)   // IWYU pragma: keep
-#include HEADER(system/linux/linuxfileout.inl)  // IWYU pragma: keep
-#include HEADER(system/linux/linuxshell.inl)    // IWYU pragma: keep
-#include HEADER(system/linux/linuxruntime.inl)  // IWYU pragma: keep
+    namespace cm {
+    #include "system/linux/linuxsyscall.inl"  // IWYU pragma: keep
+    #include "system/linux/linuxstdout.inl"   // IWYU pragma: keep
+    #include "system/linux/linuxfileout.inl"  // IWYU pragma: keep
+    #include "system/linux/linuxshell.inl"    // IWYU pragma: keep
+    #include "system/linux/linuxruntime.inl"  // IWYU pragma: keep
+    }
 #else
-namespace cm {
-
-// For an unknown operating system, set all the stdout and shell objects to None.
-
-
-void _emergencyPrint(char const* str) {}
-
-}  // namespace cm
+    #warning "Unknown operating system"
 #endif
 
-}  // namespace cm
-
+#undef __inline_core_header__
 // clang-format on
-
-#undef __inline_sys_header__

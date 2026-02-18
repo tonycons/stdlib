@@ -25,34 +25,31 @@ namespace cm {
 /// Its purpose is to implement a "growable" piece of contiguous memory.
 /// For a typed equivalent (the closest thing to std::vector<T>), see StructVector<T> below.
 ///
+UNSAFE_BEGIN;
 struct ByteVector : IEquatable<ByteVector>
 {
 private:
-    u8* _data;
-    usize _length;
-    usize _capacity;
-    bool _needheap;
+    u8* _data = nullptr;
+    usize _length = 0;
+    usize _capacity = 0;
 
-    UNSAFE_BEGIN void _ensureDataOnHeap()
+    void _ensureDataOnHeap()
     {
-        if (!_needheap)
+        if (!Ptr::isRomData(_data)) {
             return;
-        Assert(Ptr::isRomData(_data), ASMS_BAD_CIRCUMSTANCE);
-        auto old = _data;
+        }
+        auto const old = _data;
         _data = new u8[_capacity];
         memmove(_data, old, _capacity);
-        _needheap = false;
-        UNSAFE_END;
     }
 
-    UNSAFE_BEGIN void _reallocate()
+    void _reallocate()
     {
         Assert(_capacity > 0, ASMS_BUG);
-        auto old = _data;
-        _data = new u8[size_t(_capacity)];
+        auto const old = _data;
+        _data = new u8[_capacity];
         memmove(_data, old, _length);
         delete[] old;
-        UNSAFE_END;
     }
 
 public:
@@ -61,16 +58,16 @@ public:
     ///
     /// Initialize from region of memory
     ///
-    inline ByteVector(void const* ptr, usize len) noexcept
+    inline ByteVector(void const* ptr, usize const len) noexcept
     {
         Assert(ptr, ASMS_INVALID(ptr));
         Assert(len, ASMS_INVALID(len));
+
         if (Ptr::isRomData(ptr)) {
             // This optimization (checking if the pointer has infinite lifetime) means it is unnecessary to make a copy
             // of the data (until it gets modified, then make a copy)
             _data = static_cast<u8*>(const_cast<void*>(ptr));
             _length = _capacity = len;
-            _needheap = true;
         } else {
             insert(0, ptr, len);
         }
@@ -85,7 +82,6 @@ public:
             if (Ptr::isRomData(other._data)) {
                 _data = const_cast<u8*>(other._data);
                 _length = _capacity = other._length;
-                _needheap = true;
             } else {
                 insert(0, other._data, other._length);
             }
@@ -100,7 +96,6 @@ public:
         _data = other._data;
         _length = other._length;
         _capacity = other._capacity;
-        _needheap = other._needheap;
         other._data = nullptr;
     }
 
@@ -141,23 +136,25 @@ public:
         return ArrayRef<u8>(this->_data, this->length()).equals(ArrayRef<u8>(other._data, other.length()));
     }
 
-    void append(u8 byte);
-    void append(ByteVector const& other);
 
-    UNSAFE_BEGIN void insert(size_t index, void const* bytes, size_t nBytes)
+    void insert(size_t index, void const* bytes, size_t nBytes)
     {
+        UNSAFE_BEGIN;
+
+        // Sanity checks
         Assert(index <= _length, ASMS_INVALID(index));
         Assert(bytes, ASMS_INVALID(bytes));
         if (nBytes == 0) {
             return;
         }
+
+        // This will modify the data, which requires ownership of it
         _ensureDataOnHeap();
+
+        // Check if reallocation is required
         if (_length + nBytes >= _capacity) {
-            auto prevCapacity = _capacity;
-            _capacity = _capacity + (_capacity / 2);
-            if (_capacity < prevCapacity + nBytes) {
-                _capacity += nBytes + 2;
-            }
+            // Increase capacity by 1.5x or nBytes, whichever is larger
+            _capacity = ::cm::max(_capacity + nBytes, _capacity + (_capacity / 2));
             _reallocate();
         }
         _length += nBytes;
@@ -165,40 +162,46 @@ public:
         memmove(&_data[index + nBytes], &_data[index], (_length - (index + nBytes)));
         // Copy values into array buffer
         memmove(&_data[index], bytes, nBytes);
+
         UNSAFE_END;
     }
 
-    UNSAFE_BEGIN void erase(size_t index, size_t nBytes)
+    void erase(size_t const index, size_t const nBytes)
     {
-        Assert(size_t((index + nBytes)) <= length());
+        UNSAFE_BEGIN;
+
+        Assert(static_cast<size_t>(index + nBytes) <= length());
         _ensureDataOnHeap();
         // Shift elements backwards into the space erased from
         memmove(&_data[index], &_data[index + nBytes], _length - (index + nBytes));
         // Refill the new space created at the end of the buffer with zeros
         memset(&_data[_length - nBytes], 0, nBytes);
         _length -= nBytes;
-        if (_length > 16 && _length < (_capacity / 4)) {
-            _capacity = max(16u, _capacity / 2);
-            _reallocate();
-        }
+
+        // if (_length > 16 && _length < (_capacity / 4)) {
+        //     _capacity = max(16u, _capacity / 2);
+        //     _reallocate();
+        // }
+
         UNSAFE_END;
     }
 
     void clear()
     {
-        if (!_needheap && _data)
+        if (!Ptr::isRomData(_data)) {
             delete[] _data;
+        }
         _capacity = 0;
         _length = 0;
         _data = nullptr;
     }
 
-    FORCEINLINE size_t length() const { return _length; }
-    FORCEINLINE bool empty() const { return _length == 0; }
-    FORCEINLINE u8 const* data() const { return _data; }
-    FORCEINLINE u8* data() { return _data; }
+    constexpr size_t length() const { return _length; }
+    constexpr bool empty() const { return _length == 0; }
+    constexpr u8 const* data() const { return _data; }
+    constexpr u8* data() { return _data; }
 };
-
+UNSAFE_END;
 
 ///
 /// @brief StructVector is a "growable" piece of contiguous memory like ByteVector, except it is specialized to hold
@@ -244,25 +247,25 @@ public:
 /// then there is 5x more code.
 /// Banning complex objects makes the implementation simpler and allows for better performance.
 ///
-template<typename T>
-struct StructVector : private ByteVector
-{
-    StructVector() = default;
+// template<typename T>
+// struct StructVector : private ByteVector
+// {
+//     StructVector() = default;
 
-    FORCEINLINE void append(T const& value)
-    {
-        ByteVector::insert(ByteVector::length() - sizeof(value), &value, sizeof(value));
-    }
+// FORCEINLINE void append(T const& value)
+// {
+//     ByteVector::insert(ByteVector::length() - sizeof(value), &value, sizeof(value));
+// }
 
-    FORCEINLINE void repeat(size_t n)
-    {
-        while (n-- != 0) {
-            ByteVector::append(*this);
-        }
-    }
+// FORCEINLINE void repeat(size_t n)
+// {
+//     while (n-- != 0) {
+//         ByteVector::append(*this);
+//     }
+// }
 
-    // TODO: implement
-};
+// // TODO: implement
+// };
 
 
 }  // namespace cm

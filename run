@@ -1,6 +1,76 @@
 #!/bin/bash
 
-if ninja -C build; then
-    clang -I ./include/ -E ./test/blank.cc > ./include/commons/everything-linux.hh &
-    ./build/commons-test
-fi
+set -e
+
+args=(
+    -std=c++26
+    -Os
+    -glldb
+    -Weverything
+    -fsafe-buffer-usage-suggestions
+    -Wnonnull
+    -Wno-global-constructors
+    -Wno-missing-prototypes
+    -Wno-extra-semi
+    -Wno-extra-semi-stmt
+    -Wno-c++20-compat
+    -Wno-c++98-compat
+    -Wno-c++98-compat-pedantic
+    -Wno-c99-designator
+    -Wno-unused-macros
+    -Wno-gnu-case-range
+    -Wno-shadow-field-in-constructor
+    -Wno-dollar-in-identifier-extension
+    -Wno-padded
+    -Wno-weak-vtables
+    -Wno-exit-time-destructors
+    -Wno-reserved-identifier
+    -Wno-extra-qualification
+    -Wno-bit-int-extension
+    -Wno-header-hygiene
+    --target=x86_64-redhat-linux-gnu
+    -fcolor-diagnostics
+    -fansi-escape-codes
+    -mthread-model posix
+    -Wall
+    #-nodefaultlibs
+    #-nostdlib
+    -fno-exceptions
+    -fno-rtti
+    -fno-threadsafe-statics
+    # optimizations
+    -mavx2
+    -mfma
+    #-fpointer-tbaa
+    -fvectorize
+    -fwrapv
+    #-fwrapv-pointer
+    #
+    -fverbose-asm
+    -fstack-clash-protection
+    #-fsanitize=dataflow
+    #-mllvm=-dfsan-track-origins=0
+    #-mllvm=-dfsan-combine-pointer-labels-on-load=false
+    #-mllvm=-dfsan-combine-pointer-labels-on-store=false
+    #-mllvm=-dfsan-combine-offset-labels-on-gep=true
+    #-mllvm=-dfsan-track-select-control-flow=false
+    #-finstrument-functions-after-inlining
+    -fsanitize=address
+    #-fno-inline
+    -fno-omit-frame-pointer
+    #-fsanitize=undefined -fsanitize-minimal-runtime
+    #-fno-sanitize=vptr
+    #-flto=full
+    #-fvirtual-function-elimination
+    #-fwhole-program-vtables
+    -I ./include/
+    $1
+    -o ./build/test.out
+)
+
+clang++ "${args[@]}"
+
+
+clang -I ./include/ -E ./test/blank.cc > ./include/commons/everything-linux.txt
+
+./build/test.out
