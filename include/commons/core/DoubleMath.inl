@@ -219,8 +219,8 @@ struct Double
             }
         }
         auto stupid = frexpFiniteNonzero(value);
-        auto dM = stupid.template get<0>();
-        auto iExp = stupid.template get<1>();
+        auto dM = stupid.first;
+        auto iExp = stupid.second;
         auto dM2 = dM * dM;
         auto dM3 = dM * dM2;
         auto dM4 = dM2 * dM2;

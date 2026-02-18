@@ -128,7 +128,7 @@ public:
 
     FORCEINLINE constexpr static float trunc(float x)
     {
-#if __AVX__
+#ifdef __AVX__
         if !consteval {
             using _f32x4 = __attribute__((__vector_size__(16))) float;
             return __builtin_ia32_roundss(_f32x4{x, 0, 0, 0}, _f32x4{x, 0, 0, 0}, 11)[0];

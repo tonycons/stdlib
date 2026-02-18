@@ -85,7 +85,7 @@ struct Iterable
     /// Generally slower than equals(), but tries to ensure that comparison always takes the same amount of time for a
     /// given length.
     ///
-    constexpr int equalsTimesafe(this Iterable const& self, auto const& other)
+    constexpr int equalsTimeSafe(this Iterable const& self, auto const& other)
     {
         auto const& _self = DerivedRef(self);
         auto const& otherDerived = DerivedRef(other);
@@ -224,7 +224,7 @@ struct Iterable
     ///
     /// Returns a product of all the elements.
     /// @tparam ProductType the type which the product is stored in. This is useful, for example, if you have an array
-    /// of 8-bit integers and you want to store the product in a 64-bit integer. Without a ProductType specified, the
+    /// of 8-bit integers, and you want to store the product in a 64-bit integer. Without a ProductType specified, the
     /// product will be the same type as the elements (in this case, an 8-bit integer), which will overflow and not
     /// store the product correctly.
     ///
@@ -253,22 +253,21 @@ struct Iterable
     }
 
     ///
-    /// Finds the first occurence of a contiguous
+    /// Finds the first occurrence of a contiguous
     ///
-    inline Optional<usize> find(this Iterable const& self, Derived const& str, usize baseIndex = 0)
+    constexpr Optional<usize> find(this Iterable const& self, Derived const& str, usize baseIndex = 0)
     {
-        auto _self = DerivedRef(self);
-        if (_self.length() < str.length()) {
+        if (auto _self = DerivedRef(self); _self.length() < str.length()) {
             return None;
-        } else if (_self.length() == str.length() && _self.equals(str)) {
-            return 0uz;
         } else {
+            if (_self.length() == str.length() && _self.equals(str)) {
+                return 0uz;
+            }
             for (usize i = baseIndex; i < _self.length() - str.length(); i++) {
                 UNSAFE_BEGIN;
                 auto s1 = _self.slice(i, str.length());
                 UNSAFE_END;
-                auto s2 = str.slice(0, str.length());
-                if (s1.equals(s2)) {
+                if (auto s2 = str.slice(0, str.length()); s1.equals(s2)) {
                     return i;
                 }
             }

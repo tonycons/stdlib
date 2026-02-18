@@ -24,6 +24,7 @@ struct Generator
 {};
 
 
+
 template<typename Collection, typename CollectionFilterIterator, typename Predicate>
 struct FilterGenerator
 {

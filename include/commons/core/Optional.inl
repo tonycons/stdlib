@@ -20,11 +20,6 @@
 
 namespace cm {
 
-struct NoneType
-{};
-
-constexpr auto None = NoneType{};
-
 ///
 /// @see docs/Option.md
 ///

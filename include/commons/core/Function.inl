@@ -39,15 +39,15 @@ public:
     constexpr inline CFunction(CFunction&&) = default;
     constexpr inline CFunction& operator=(CFunction&&) = default;
 
-    constexpr inline CFunction()
+    constexpr inline CFunction() noexcept
         : _func(nullptr)
     {}
 
-    constexpr inline CFunction(ReturnType (*funcPtr)(Args...))
+    constexpr inline CFunction(ReturnType (*funcPtr)(Args...)) noexcept
         : _func(funcPtr)
     {}
 
-    constexpr inline CFunction& operator=(ReturnType (*funcPtr)(Args...))
+    constexpr inline CFunction& operator=(ReturnType (*funcPtr)(Args...)) noexcept
     {
         _func = funcPtr;
         return *this;
@@ -65,15 +65,14 @@ private:
 };
 
 
-template<typename>
+template<usize, typename>
 struct Function;
 
 ///
-/// An extension of CFunction that can store capturing lambdas. It has the overhead of allocating a variable amount of
-/// data on the heap, however.
+/// An extension of CFunction that can store capturing lambdas.
 ///
-template<typename ReturnType, typename... Args>
-struct Function<ReturnType(Args...)>
+template<usize Size, typename ReturnType, typename... Args>
+struct Function<Size, ReturnType(Args...)> : CFunction<ReturnType(Args...)>
 {
 private:
     struct Callable
@@ -107,7 +106,7 @@ public:
         : _callable(new CallableT<T>(t))
     {}
 
-    constexpr inline Function(Function&& other)
+    constexpr inline Function(Function&& other) noexcept
         : _callable(other._callable)
     {
         other._callable = nullptr;

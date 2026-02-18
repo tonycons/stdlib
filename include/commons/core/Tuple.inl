@@ -17,8 +17,92 @@
 #warning Do not include this file directly; include "core.hh" instead
 #else
 
+// clang-format off
 namespace cm {
 
+template<typename...>
+struct Tuple;
+
+
+template<typename T1>
+struct Tuple<T1>
+{
+    T1 first;
+
+    constexpr Tuple(T1&& a) : first(Forward<T1>(a)) {}
+    static consteval auto size()  { return 1; }
+
+    template<typename T>
+    constexpr inline T construct() const { return T(first); }
+};
+
+template<typename T1, typename T2>
+struct Tuple<T1, T2>
+{
+    T1 first;
+    T2 second;
+
+    //constexpr Tuple(T1 const& a, T2 const& b) : first(a), second(b) {}
+    template<typename U1, typename U2>
+    constexpr Tuple(U1&& a, U2&& b) : first(Forward<U1>(a)), second(Forward<U2>(b)) {}
+    static consteval auto size() { return 2; }
+
+    template<typename T>
+    constexpr inline T construct() const { return T(first, second); }
+};
+
+template<typename T1, typename T2, typename T3>
+struct Tuple<T1, T2, T3>
+{
+    T1 first;
+    T2 second;
+    T3 third;
+
+    template<typename U1, typename U2, typename U3>
+    constexpr Tuple(U1&& a, U2&& b, U3&& c) : first(Forward<U1>(a)), second(Forward<U2>(b)), third(Forward<U3>(c)) {}
+
+    static consteval auto size() { return 3; }
+
+    template<typename T>
+    constexpr inline T construct() const { return T(first, second, third); }
+};
+
+template<typename T1, typename T2, typename T3, typename T4>
+struct Tuple<T1, T2, T3, T4>
+{
+    T1 first;
+    T2 second;
+    T3 third;
+    T4 fourth;
+
+    template<typename U1, typename U2, typename U3, typename U4>
+    constexpr Tuple(U1&& a, U2&& b, U3&& c, U4&& d) : first(Forward<U1>(a)), second(Forward<U2>(b)), third(Forward<U3>(c)), fourth(Forward<U4>(d)) {}
+
+    static consteval auto size() { return 4; }
+
+    template<typename T>
+    constexpr inline T construct() const { return T(first, second, third, fourth); }
+};
+
+template<typename TupleType, unsigned N>
+using TupleElement = PointerRemoved<decltype([](){
+    if constexpr (N == 0) {
+        return static_cast<decltype(TupleType::first)* >(nullptr);
+    } else if constexpr (N == 1) {
+        return static_cast<decltype(TupleType::second)* >(nullptr);
+    } else if constexpr (N == 2) {
+        return static_cast<decltype(TupleType::third)* >(nullptr);
+    } else if constexpr (N == 3) {
+        return static_cast<decltype(TupleType::fourth)* >(nullptr);
+    }
+}())>;
+
+}  // namespace cm
+// clang-format on
+
+
+/*
+namespace cm {
 #if __has_builtin(__make_integer_seq)
 
 template<typename T, T... Index>
@@ -217,8 +301,8 @@ struct tuple_size<::cm::Tuple<Args...>>
     constexpr static auto value = sizeof...(Args);
 };
 
-template<decltype(0uz) Index, typename... Args>
-struct tuple_element<Index, ::cm::Tuple<Args...>>
+template<decltype(0uz) Indefirst, typename... Args>
+struct tuple_element<Indefirst, ::cm::Tuple<Args...>>
 {
     using type = ::cm::TupleElement<::cm::Tuple<Args...>, Index> const;
 };
@@ -232,5 +316,7 @@ concept IsTuple = IsDerivedFrom<TupleBase, RValueRefRemoved<CVRefRemoved<T>>>;
 // concept IsPair = IsDerivedFrom<PairBase, RValueRefRemoved<CVRefRemoved<T>>>;
 
 }  // namespace cm
+*/
+
 
 #endif

@@ -112,7 +112,7 @@ static_assert(sizeof(usize) == sizeof(void*) && sizeof(isize) == sizeof(void*));
 #define $ExternC extern "C"
 #define $NoReturn [[noreturn]]
 
-#define NODISCARD [[nodiscard]]
+#define NODISCARD
 
 #define NOINSTRUMENT [[gnu::no_instrument_function, gnu::no_sanitize_address]]
 
@@ -185,6 +185,11 @@ static_assert(sizeof(usize) == sizeof(void*) && sizeof(isize) == sizeof(void*));
 ///
 
 namespace cm {
+
+struct NoneType
+{};
+
+constexpr auto None = NoneType{};
 
 
 /**

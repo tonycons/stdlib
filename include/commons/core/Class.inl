@@ -20,6 +20,43 @@
 
 namespace cm {
 
+#if __has_builtin(__make_integer_seq)
+
+template<typename T, T... Index>
+struct IntegerSequence
+{
+    constexpr static auto size() { return sizeof...(Index); }
+};
+
+template<typename T, auto N>
+using MakeIntegerSequence = __make_integer_seq<IntegerSequence, T, N>;
+
+#else
+
+template<typename T, T... Ints>
+struct IntegerSequence
+{
+    constexpr static auto size() { return sizeof...(Ints); }
+
+    template<T Next>
+    using Append = IntegerSequence<T, Ints..., Next>;
+};
+
+namespace detail {
+template<typename T, int N>
+struct MakeIntegerSequence
+{
+    using Type = typename MakeIntegerSequence<T, N - 1>::Type::template Append<N>;
+};
+
+template<typename T>
+struct MakeIntegerSequence<T, -1>
+{
+    using Type = IntegerSequence<T>;
+};
+}  // namespace detail
+#endif
+
 class String;
 
 ///

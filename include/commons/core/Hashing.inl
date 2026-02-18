@@ -16,7 +16,7 @@
 #warning Do not include this file directly; include "core.hh" instead
 #else
 // clang-format off
-#include HEADER(core/hashers/crc32_hasher.hh)
+#include "hashers/crc32_hasher.hh"
 // clang-format on
 
 
