@@ -330,15 +330,15 @@ public:
         : _tag(MatchTo<V>::Tag), _data([&] constexpr {
               constexpr auto Tag = MatchTo<V>::Tag;
               if constexpr (Tag == 0) {
-                  return Data{._0 = Forward<V>(value)};
+                  return Data{._0 = static_cast<decltype(Data::_0)>(Forward<V>(value))};
               } else if constexpr (Tag == 1) {
-                  return Data{._1 = Forward<V>(value)};
+                  return Data{._1 = static_cast<decltype(Data::_1)>(Forward<V>(value))};
               } else if constexpr (Tag == 2) {
-                  return Data{._2 = Forward<V>(value)};
+                  return Data{._2 = static_cast<decltype(Data::_2)>(Forward<V>(value))};
               } else if constexpr (Tag == 3) {
-                  return Data{._3 = Forward<V>(value)};
+                  return Data{._3 = static_cast<decltype(Data::_3)>(Forward<V>(value))};
               } else if constexpr (Tag == 4) {
-                  return Data{._4 = Forward<V>(value)};
+                  return Data{._4 = static_cast<decltype(Data::_4)>(Forward<V>(value))};
               } else {
                   static_assert(false, "None of the union types can be initialized from the provided value");
               }

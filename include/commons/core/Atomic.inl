@@ -17,7 +17,10 @@
 #warning Do not include this file directly; include "core.hh" instead
 #else
 
-enum class AtomicConstraint {
+
+namespace cm {
+
+enum class Atomicity {
 
     // Implies no inter-thread ordering constraints.
     Relaxed = __ATOMIC_RELAXED,
@@ -37,33 +40,65 @@ enum class AtomicConstraint {
     Strict = __ATOMIC_SEQ_CST,
 };
 
-template<typename T, auto DefaultConstraint = AtomicConstraint::Strict>
+template<typename T, Atomicity M = Atomicity::Strict>
 struct Atomic
 {
 public:
-    T load() const noexcept { return __atomic_load_n(&val_, 0); }
+    Atomic() = default;
+    Atomic(T val)
+        : _val(val)
+    {}
 
-    void store(T val) const noexcept { __atomic_store(&val_, &val); }
+    T load() const noexcept { return __atomic_load_n(&_val, static_cast<int>(M)); }
+    void store(T val) const noexcept { __atomic_store_n(&_val, val, static_cast<int>(M)); }
 
     void clear() const noexcept
     {
         if constexpr (__is_same(T, bool)) {
-            __atomic_clear(&val_, 0);
+            __atomic_clear(&_val, 0);
         } else {
-            __atomic_store_n(&val_, 0, 0);
+            __atomic_store_n(&_val, 0, static_cast<int>(M));
         }
     }
 
-    void swap(Atomic& other) noexcept { __atomic_exchange(&other.val_, &this->val_, &this->val_); }
+    void swap(Atomic& other) noexcept { __atomic_exchange(&other._val, &_val, &_val); }
+
+    ///
+    /// Atomically replaces the value with the result of addition of arg to the old value and returns the value
+    /// held previously.
+    ///
+    template<Atomicity M_ = M>
+    auto add(T const& arg) requires (IsInteger<T>)
+    {
+        return __atomic_fetch_add(&_val, arg, static_cast<int>(M_));
+    }
+
+    ///
+    /// Atomically replaces the value with the result of subtraction of arg from the old value and returns the value
+    /// held previously.
+    ///
+    template<Atomicity M_ = M>
+    auto fetchSub(T const& arg) requires (IsInteger<T>)
+    {
+        return __atomic_fetch_sub(&_val, arg, static_cast<int>(M_));
+    }
+
+    template<Atomicity M_ = M>
+    static void fence()
+    {
+        __c11_atomic_thread_fence(static_cast<int>(M_));
+    }
 
 private:
-    T val_;
+    T volatile _val;
 };
 
-template<auto Ordering = AtomicConstraint::Strict>
+template<auto Ordering = Atomicity::Strict>
 using AtomicBool = Atomic<bool, Ordering>;
 
-template<typename T, auto Ordering = AtomicConstraint::Strict>
+template<typename T, auto Ordering = Atomicity::Strict>
 using AtomicPtr = Atomic<T*, Ordering>;
+
+}  // namespace cm
 
 #endif

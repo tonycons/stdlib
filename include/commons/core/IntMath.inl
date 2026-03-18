@@ -395,7 +395,7 @@ struct PowerLookupTable
     {
         auto k = T(1);
         auto i = T(0);
-        (*this)[i++] = k;
+        (*this)[i++] = Base;
         while (!mulOverflow(k, Base, k)) {
             (*this)[i++] = k;
         }
@@ -412,20 +412,22 @@ struct PowerLookupTable
 /// @return An optional containing Base raised to the power k, or None if power is too large
 ///
 template<IsInteger auto Base>
-constexpr static auto pow(IsInteger auto k) -> Optional<decltype(k)>
+[[maybe_unused]] constexpr static auto pow(IsInteger auto k)
 {
     using T = CVRefRemoved<decltype(k)>;
     constexpr static PowerLookupTable<T, Base> table;
     if constexpr (IsIntegerSigned<T>) {
         if (k < 0) {
-            return None;
+            // Since negative powers would result in a fractional value, truncating it to an integer is effectively 0
+            return static_cast<T>(0);
         }
     }
     [[assume(k >= 0)]];
+    // if the power is too large: Return the maximum possible value for the integer type
     if (UintN<BITS<T>>(k) >= table.length()) {
-        return None;
+        return static_cast<T>(MAX_VALUE<T>);
     }
-    return table[k];
+    return static_cast<T>(table[k]);
 }
 
 
@@ -433,7 +435,8 @@ constexpr static auto pow(IsInteger auto k) -> Optional<decltype(k)>
 /// Returns the number of leading zeros in the binary representation of x.
 /// @param x the value
 ///
-constexpr static auto clz(IsInteger auto x) -> UintRanged<BITS<decltype(x)>>
+[[maybe_unused]]
+constexpr auto clz(IsInteger auto x) -> UintRanged<BITS<decltype(x)>>
 {
     using R = UintRanged<BITS<decltype(x)>>;
     if constexpr (sizeof(x) <= sizeof(int)) {
@@ -461,7 +464,7 @@ constexpr static auto clz(IsInteger auto x) -> UintRanged<BITS<decltype(x)>>
             if ((x & mask) != 0) {
                 break;
             }
-            count++;
+            ++count;
         }
         return R(count);
     }
@@ -475,59 +478,50 @@ constexpr static auto clz(IsInteger auto x) -> UintRanged<BITS<decltype(x)>>
 /// obtained from this function, U256.log<2>(U256.MAX_VALUE), is exactly 255.
 ///
 template<IsInteger auto Base = 10>
-constexpr static u8 log(IsInteger auto x)
+[[maybe_unused]]
+constexpr auto log(IsInteger auto x)
 {
     if constexpr (Base == 2) {
-        return u8(((sizeof(x) * 8) - 1) - unsigned(clz(x)));
+        return static_cast<u8>(((sizeof(x) * 8) - 1) - static_cast<unsigned>(clz(x)));
     } else if constexpr (Base == 16) {
         return log<2>(x) / 4;
-    } else if constexpr (Base == 10) {
-        constexpr u8 UNSAFE(guess[33]) = {0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4,
-                                          5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 8, 8, 8, 9, 9, 9};
-        u8 UNSAFE(digits) = guess[log<2>(x)];
-        return u8(digits + ((x / 10) >= pow<10>(digits).val()));
     } else {
-        static_assert(false, "Not implemented");
+        constexpr static PowerLookupTable<decltype(x), Base> table;
+        for (auto i = Base - 1; i >= 0; --i) {
+            if (x >= table[i]) {
+                return i;
+            }
+        }
+        return Base;
     }
 }
 
 ///
 /// Returns the most significant base-N digit of an integer.
 ///
-template<unsigned BaseN>
-constexpr static auto msd(IsInteger auto x) -> decltype(x)
+template<unsigned base>
+[[maybe_unused]]
+constexpr static auto msd(IsInteger auto x)
 {
     using T = decltype(x);
-    if constexpr (!IsIntegerSigned<T>) {
-        return T(x / pow<BaseN>(log<BaseN>(x)).val());
-    } else {
-        if (x < 0) {
-            if (x == MIN_VALUE<T>) [[unlikely]] {
-                x += 1;
-            }
-            x = -x;
-        }
-        return T(x / pow<BaseN>(log<BaseN>(x)).val());
+    if (x == 0) {
+        return static_cast<T>(0);
     }
+    if (x < 0) {
+        if (x == MIN_VALUE<T>) [[unlikely]] {
+            x += 1;
+        }
+        x = -x;
+    }
+    x /= pow<base>(log<base>(x));
+    return x;
 }
-
-
-// #if __clang__
-// #define U128(str) \
-//     ([]<bool C>(auto const& s) constexpr -> u128 { \
-//         if constexpr (C) { \
-//             return ::cm::_u128_c::parse_cv(s); \
-//         } else { \
-//             return ::cm::_u128_c::parse(s); \
-//         } \
-//     }.template operator()<__builtin_constant_p(str)>(str))
-// #endif
 
 
 constexpr void ::cm::impl::outputStringForPrimitiveType(auto const& value, auto const& out)
 {
-    constexpr IntBaseFmt Base = IntBaseFmt::B10;
-    constexpr IntegerParsingScheme S = IntegerParsingScheme::DEFAULT;
+    constexpr auto Base = IntBaseFmt::B10;
+    constexpr auto S = IntegerParsingScheme::DEFAULT;
     using T = CVRefRemoved<decltype(value)>;
 
     if constexpr (IsUnderlyingTypeOneOf<T, char, char8_t>) {
@@ -570,14 +564,19 @@ constexpr void ::cm::impl::outputStringForPrimitiveType(auto const& value, auto 
                 out("0x");
             }
         }
+        constexpr auto base = static_cast<T>(Base);
         if (num == 0) {
-            out(intBaseTables[uint(Base)].charSet[0]);
+            out(intBaseTables[base].charSet[0]);
             return;
         }
-        do {
-            out(intBaseTables[uint(Base)].charSet[msd<uint(Base)>(num)]);
-            num /= uint(Base);
-        } while (num != 0);
+        [&out, &base](this auto&& self, T const num_) -> void {
+            if (num_ < base) {
+                out(intBaseTables[base].charSet[num_]);
+            } else {
+                self(num_ / 10);
+                out(intBaseTables[base].charSet[num_ % base]);
+            }
+        }(num);
 
     } else if constexpr (IsFloatingPoint<T>) {
 
@@ -631,5 +630,18 @@ constexpr void ::cm::impl::outputStringForPrimitiveType(auto const& value, auto 
 }
 
 }  // namespace cm
+
+
+// #if __clang__
+// #define U128(str) \
+//     ([]<bool C>(auto const& s) constexpr -> u128 { \
+//         if constexpr (C) { \
+//             return ::cm::_u128_c::parse_cv(s); \
+//         } else { \
+//             return ::cm::_u128_c::parse(s); \
+//         } \
+//     }.template operator()<__builtin_constant_p(str)>(str))
+// #endif
+
 
 #endif

@@ -35,6 +35,12 @@ inline StreamStatus setStatusFromErrno(StreamStatus& status, int const& err = er
 ///
 struct LinuxFileInStream final : InStream<LinuxFileInStream>, NonCopyable
 {
+private:
+    int _fd = 0;
+    Status _status = STATUS_OK;
+    Mutex _lock{};
+
+public:
     constexpr LinuxFileInStream(LinuxFileInStream&& other) = default;
     constexpr LinuxFileInStream& operator=(LinuxFileInStream&& other) = default;
 
@@ -55,8 +61,7 @@ struct LinuxFileInStream final : InStream<LinuxFileInStream>, NonCopyable
             _status = StreamStatus(EINVAL);
             return;
         }
-        if (auto const result =
-                static_cast<i64>(LinuxSyscall(LinuxSyscall.open, reinterpret_cast<u64>(path.cstr()), sysMode));
+        if (auto const result = kernel::call(kernel::open, path.cstr(), sysMode).cast<isize>();
             result < 0 && result > -0x1000)
         {
             auto const err = static_cast<int>(-result);
@@ -73,18 +78,18 @@ struct LinuxFileInStream final : InStream<LinuxFileInStream>, NonCopyable
     ~LinuxFileInStream() { close(); }
 
     ///
+    /// Closes the file.
     /// @return Status of close
     ///
     Result<Status, Status> close()
     {
-        __builtin_printf("Closed\n");
-        if (auto const result = static_cast<isize>(LinuxSyscall(LinuxSyscall.close, static_cast<usize>(_fd)));
-            result < 0)
-        {
+        CriticalSection cs(_lock);
+        if (auto const result = kernel::call(kernel::close, _fd).cast<isize>(); result < 0) {
             auto const err = static_cast<int>(-result);
             return Err(LinuxFileStreamHelper::setStatusFromErrno(_status, err));
         }
-        return Ok(_status = STATUS_OK);
+        _status = STATUS_OK;
+        return Ok(_status);
     }
 
     ///
@@ -98,8 +103,8 @@ struct LinuxFileInStream final : InStream<LinuxFileInStream>, NonCopyable
     template<typename BufferType>
     Result<usize, Status> readBytes(BufferType& buffer)
     {
-        auto const result = static_cast<isize>(LinuxSyscall(
-            LinuxSyscall.read, static_cast<usize>(_fd), reinterpret_cast<usize>(buffer.data()), buffer.sizeBytes()));
+        CriticalSection cs(_lock);
+        auto const result = kernel::call(kernel::read, _fd, buffer.data(), buffer.sizeBytes()).template cast<isize>();
         if (result < 0) {
             auto const err = static_cast<int>(-result);
             return Err(LinuxFileStreamHelper::setStatusFromErrno(_status, err));
@@ -108,15 +113,55 @@ struct LinuxFileInStream final : InStream<LinuxFileInStream>, NonCopyable
     }
 
     ///
-    /// @return On success, returns a string containing the contents of the file interpreted as text. On error, returns
-    /// a Status error code.
+    /// Moves the file pointer to the beginning of the file. Read calls will start reading from the beginning of the
+    /// file again.
+    ///
+    void seekStart()
+    {
+        CriticalSection cs(_lock);
+        kernel::call(kernel::lseek, 0, kernel::SeekSet);
+    }
+
+    ///
+    /// Moves the file pointer to the Nth byte in the file- a positive value is an offset from the start of the file, a
+    /// negative value indicates an offset backwards from the end of the file
+    ///
+    void seekAbsolute(i64 offset)
+    {
+        if (offset == 0) [[unlikely]] {
+            return;
+        }
+        CriticalSection cs(_lock);
+        if (offset < 0) {
+            kernel::call(kernel::lseek, -offset, kernel::SeekEnd);
+        } else {
+            kernel::call(kernel::lseek, offset, kernel::SeekSet);
+        }
+    }
+
+    ///
+    /// Moves the file pointer to the Nth byte in the file- a positive value is an offset from the start of the file, a
+    /// negative value indicates an offset backwards from the end of the file
+    ///
+    void seekRelative(i64 offset)
+    {
+        CriticalSection cs(_lock);
+        kernel::call(kernel::lseek, offset, kernel::SeekCur);
+    }
+
+    ///
+    /// @return On success, returns a string containing the contents of the entire file interpreted as text. On error,
+    /// returns a Status error code.
     ///
     template<usize BufferSize = 64>
     Result<String, Status> readAllAsString()
     {
+        CriticalSection cs(_lock);
+        seekStart();
+        DEFER { seekStart(); };
         String str;
         while (true) {
-            Array<u8, BufferSize> tmp{};
+            FixedArray<u8, BufferSize> tmp{};
             auto const result = readBytes(tmp);
             str.append(StringRef(reinterpret_cast<char const*>(tmp.data()), tmp.sizeBytes() / sizeof(char)));
             if (result.isErr()) {
@@ -132,9 +177,6 @@ struct LinuxFileInStream final : InStream<LinuxFileInStream>, NonCopyable
 
     constexpr Status status() const { return _status; }
     constexpr bool ok() const { return _status == STATUS_OK; }
-
-    int _fd = 0;
-    Status _status = STATUS_OK;
 };
 
 using FileInStream = LinuxFileInStream;
@@ -162,10 +204,10 @@ struct LinuxFileOutStream final : IOutStream<LinuxFileOutStream>, NonCopyable
         : _buffer(bufferCapacity.valueOr<usize>(4_KB))
     {
         // mode_t mode = S_IRUSR | S_IWUSR;
-        auto const result =
-            static_cast<i64>(LinuxSyscall(LinuxSyscall.open, reinterpret_cast<u64>(path.cstr()), O_WRONLY));
 
-        if (result < 0 && result > -0x1000) {
+        if (auto const result = kernel::call(kernel::open, path.cstr(), O_WRONLY).cast<i64>();
+            result < 0 && result > -0x1000)
+        {
             auto const err = static_cast<int>(-result);
             LinuxFileStreamHelper::setStatusFromErrno(_status, err);
             _fd = -1;
@@ -216,8 +258,7 @@ struct LinuxFileOutStream final : IOutStream<LinuxFileOutStream>, NonCopyable
         if (size == 0) {
             return true;
         }
-        auto const r = static_cast<ssize_t>(
-            LinuxSyscall(LinuxSyscall.write, static_cast<usize>(_fd), reinterpret_cast<usize>(buffer), size));
+        auto const r = kernel::call(kernel::write, _fd, buffer, size).cast<isize>();
         if (r < 0) {
             auto const err = static_cast<int>(-r);
             _status = LinuxFileStreamHelper::setStatusFromErrno(_status, err);
@@ -243,9 +284,7 @@ struct LinuxFileOutStream final : IOutStream<LinuxFileOutStream>, NonCopyable
     ///
     Result<StreamStatus, StreamStatus> close()
     {
-        if (auto const result = static_cast<isize>(LinuxSyscall(LinuxSyscall.close, static_cast<usize>(_fd)));
-            result < 0)
-        {
+        if (auto const result = kernel::call(kernel::close, _fd).cast<isize>(); result < 0) {
             auto const err = static_cast<int>(-result);
             return Err(LinuxFileStreamHelper::setStatusFromErrno(_status, err));
         }

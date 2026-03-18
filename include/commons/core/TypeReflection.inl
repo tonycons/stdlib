@@ -718,6 +718,16 @@ public:
     constexpr NonCopyable& operator=(NonCopyable&&) noexcept(true) = default;
 };
 
+class NonMovable {
+protected:
+    constexpr NonMovable() = default;
+    constexpr ~NonMovable() = default;
+
+public:
+    constexpr NonMovable(NonMovable&&) noexcept = delete;
+    constexpr NonMovable& operator=(NonMovable&&) noexcept = delete;
+};
+
 template<typename T, unsigned ID>
 class Wrapper {
     T val_;

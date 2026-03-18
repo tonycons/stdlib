@@ -25,22 +25,15 @@
 namespace cm {
 
 ///
-/// A fixed-capacity stack data structure.
+/// A fixed-capacity queue data structure.
 /// @tparam T Element type
-/// @tparam Capacity Maximum number of elements the stack can hold
+/// @tparam Capacity Maximum number of elements the queue can hold
 ///
-template<typename T, usize Capacity = ARRAY_LENGTH_UNSPECIFIED>
+template<typename T, usize Capacity>
 struct FixedQueue  //
     : public Iterable<FixedQueue<T, Capacity>>,
       public LinearIteratorComponent<FixedQueue<T, Capacity>, Optional<T>>
 {
-private:
-    Array<Optional<T>, Capacity> _array;
-    usize _next = 0;
-    usize _first = 0;
-    usize _length = 0;
-
-public:
     ///
     /// Create a queue with runtime-specified capacity from an initializer list.
     /// @param cap The capacity of the queue (because having the size of the queue limited to the number of initial
@@ -120,6 +113,12 @@ public:
 
     inline usize length() const { return _length; }
     inline usize capacity() const { return _array.length(); }
+
+private:
+    FixedArray<Optional<T>, Capacity> _array;
+    usize _next = 0;
+    usize _first = 0;
+    usize _length = 0;
 };
 
 }  // namespace cm

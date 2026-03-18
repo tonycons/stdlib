@@ -23,7 +23,7 @@ UNSAFE_BEGIN;
 ///
 ///
 ///
-[[maybe_unused]] FORCEINLINE static u64 Syscall(int n) noexcept
+[[maybe_unused]] FORCEINLINE static u64 _exec(int n) noexcept
 {
     u64 ret;
     asm volatile("syscall" : "=a"(ret) : "a"(n) : "rcx", "r11", "memory");
@@ -33,7 +33,7 @@ UNSAFE_BEGIN;
 ///
 ///
 ///
-[[maybe_unused]] FORCEINLINE static u64 Syscall(int n, auto p1) noexcept
+[[maybe_unused]] FORCEINLINE static u64 _exec(int n, auto p1) noexcept
 {
     u64 ret;
 
@@ -45,7 +45,7 @@ UNSAFE_BEGIN;
 ///
 ///
 ///
-[[maybe_unused]] FORCEINLINE static u64 Syscall(int n, auto p1, auto p2) noexcept
+[[maybe_unused]] FORCEINLINE static u64 _exec(int n, auto p1, auto p2) noexcept
 {
     u64 result;
 
@@ -59,7 +59,7 @@ UNSAFE_BEGIN;
 ///
 ///
 ///
-[[maybe_unused]] FORCEINLINE static u64 Syscall(int n, auto p1, auto p2, auto p3) noexcept
+[[maybe_unused]] FORCEINLINE static u64 _exec(int n, auto p1, auto p2, auto p3) noexcept
 {
     u64 result;
 
@@ -75,7 +75,7 @@ UNSAFE_BEGIN;
 ///
 ///
 ///
-[[maybe_unused]] FORCEINLINE static u64 Syscall(int n, auto p1, auto p2, auto p3, auto p4) noexcept
+[[maybe_unused]] FORCEINLINE static u64 _exec(int n, auto p1, auto p2, auto p3, auto p4) noexcept
 {
     u64 result;
 
@@ -93,7 +93,7 @@ UNSAFE_BEGIN;
 ///
 ///
 ///
-[[maybe_unused]] FORCEINLINE static u64 Syscall(int n, auto p1, auto p2, auto p3, auto p4, auto p5) noexcept
+[[maybe_unused]] FORCEINLINE static u64 _exec(int n, auto p1, auto p2, auto p3, auto p4, auto p5) noexcept
 {
     u64 result;
 
@@ -117,7 +117,7 @@ UNSAFE_BEGIN;
 ///
 ///
 ///
-[[maybe_unused]] FORCEINLINE static u64 Syscall(int n, auto p1, auto p2, auto p3, auto p4, auto p5, auto p6) noexcept
+[[maybe_unused]] FORCEINLINE static u64 _exec(int n, auto p1, auto p2, auto p3, auto p4, auto p5, auto p6) noexcept
 {
     u64 result;
 
@@ -229,8 +229,8 @@ enum {
     getdtablesize = -1,
     getdomainname = -1,
     fadvise64_64 = -1,
-    execv = -1,
-    exec_with_loader = -1,
+    _execv = -1,
+    _exec_with_loader = -1,
     dipc = -1,
     cacheflush = -1,
     cachectl = -1,
@@ -364,7 +364,7 @@ enum {
     clone = 56,
     fork = 57,
     vfork = 58,
-    execve = 59,
+    _execve = 59,
     exit = 60,
     wait4 = 61,
     kill = 62,
@@ -539,7 +539,7 @@ enum {
     mq_timedreceive = 243,
     mq_notify = 244,
     mq_getsetattr = 245,
-    kexec_load = 246,
+    k_exec_load = 246,
     waitid = 247,
     add_key = 248,
     request_key = 249,
@@ -613,9 +613,9 @@ enum {
     seccomp = 317,
     getrandom = 318,
     memfd_create = 319,
-    kexec_file_load = 320,
+    k_exec_file_load = 320,
     bpf = 321,
-    execveat = 322,
+    _execveat = 322,
     userfaultfd = 323,
     membarrier = 324,
     mlock2 = 325,

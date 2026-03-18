@@ -14,6 +14,7 @@
 
 #pragma once
 #ifdef __inline_core_header__
+
 #include "linux/linuxapi.inl"
 
 namespace cm {
@@ -21,7 +22,7 @@ namespace cm {
 struct StreamStatus : IEquatable<StreamStatus>
 {
     int code = 0;
-    StringRef codeName = "";
+    StringRef codeName = "";  // NOLINT
     StringRef extMessage = "";
 
     constexpr StreamStatus(StreamStatus const&) = default;
@@ -35,8 +36,8 @@ struct StreamStatus : IEquatable<StreamStatus>
               return StringRef(cstr, len);
           }())
     {}
-    constexpr StreamStatus(int const code, StringRef const codeName, StringRef const extMessage)
-        : code(code), codeName(codeName), extMessage(extMessage)
+    constexpr StreamStatus(int const code, StringRef codeName, StringRef extMessage)
+        : code(code), codeName(move(codeName)), extMessage(move(extMessage))
     {}
 
     [[nodiscard]]

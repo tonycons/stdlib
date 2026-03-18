@@ -121,20 +121,18 @@ struct IArray : Iterable<IArray<T>>,
 
 /// A non-owning reference to an array
 template<typename T>
-struct [[clang::consumable(unconsumed)]] ArrayRef : IArray<T>
+struct ArrayRef : IArray<T>
 {
 private:
     T const* _ptr = nullptr;
     size_t _length = 0;
 
 public:
-    [[clang::return_typestate(unconsumed)]]
     constexpr ArrayRef() noexcept = default;
 
     /// Constructor from pointer and length
     /// @param ptr_ The pointer
     /// @param length_ The length
-    [[clang::return_typestate(unconsumed)]]
     explicit constexpr ArrayRef(T const* ptr_, size_t length_) noexcept
         : _ptr(ptr_), _length(length_)
     {}
@@ -149,8 +147,7 @@ public:
     /// auto x = ArrayRef({1, 2, 3, 4, 5});
     /// \endcode
     /// Use of the above will issue a warning.
-    [[clang::return_typestate(consumed)]]
-    constexpr ArrayRef([[clang::lifetimebound]] ::std::initializer_list<T> const& v) noexcept
+    constexpr ArrayRef(::std::initializer_list<T> const& v) noexcept
         : _ptr(const_cast<T*>(v.begin())), _length(v.size())
     {}
 
@@ -158,29 +155,25 @@ public:
     /// Constructor from character literal
     ///
     template<unsigned N>
-    [[clang::return_typestate(unconsumed)]] constexpr ArrayRef([[clang::lifetimebound]] T const (&literal)[N]) noexcept
+    constexpr ArrayRef(T const (&literal)[N]) noexcept
         : _ptr(const_cast<T*>(literal)), _length(N)
     {}
 
-    [[clang::callable_when(unconsumed)]]
-    constexpr ArrayRef([[clang::param_typestate(unconsumed)]] [[clang::lifetimebound]] ArrayRef const&) noexcept =
-        default;
+    //[[clang::callable_when(unconsumed)]]
+    constexpr ArrayRef(ArrayRef const&) noexcept = default;
 
-    [[clang::callable_when(unconsumed)]]
-    constexpr ArrayRef([[clang::param_typestate(unconsumed)]] [[clang::lifetimebound]] ArrayRef&&) noexcept = default;
+    //[[clang::callable_when(unconsumed)]]
+    constexpr ArrayRef(ArrayRef&&) noexcept = default;
 
     // Explicitly defaulted move assignment operator (C++11 and later)
-    [[clang::callable_when(unconsumed)]]
-    constexpr ArrayRef&
-    operator=([[clang::param_typestate(unconsumed)]] [[clang::lifetimebound]] ArrayRef&&) noexcept = default;
+    //[[clang::callable_when(unconsumed)]]
+    constexpr ArrayRef& operator=(ArrayRef&&) noexcept = default;
 
-    [[clang::callable_when(unconsumed)]]
-    constexpr ArrayRef&
-    operator=([[clang::param_typestate(unconsumed)]] [[clang::lifetimebound]] ArrayRef const&) noexcept = default;
+    //[[clang::callable_when(unconsumed)]]
+    constexpr ArrayRef& operator=(ArrayRef const&) noexcept = default;
 
     /// Index operator. Performs bounds checking.
     /// @param i the index
-    [[nodiscard]]
     constexpr T const& operator[](Index const& i) const override
     {
         auto const i_ = i.compute(*this);
@@ -189,15 +182,15 @@ public:
     }
 
     /// Index operator that does not perform bounds checking.
-    [[nodiscard]]
     constexpr T const& operator()(Index const& i) const override
     {
         auto const i_ = i.computeUnchecked(*this);
         UNSAFE({ return _ptr[i_]; });
     }
 
-    [[nodiscard]] constexpr usize length() const override { return _length; }
-    [[nodiscard]] constexpr T const* data() const override { return _ptr; }
+    constexpr usize length() const override { return _length; }
+    constexpr T const* data() const override { return _ptr; }
+    constexpr T* data() { return const_cast<T*>(_ptr); }
 };
 
 // Deduction guides for ArrayRef

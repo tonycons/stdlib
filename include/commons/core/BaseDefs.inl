@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "../config.hh"
+
 #ifndef __inline_core_header__
 #warning Do not include this file directly; include "core.hh" instead
 #else
@@ -24,6 +26,14 @@
 #include <intrin.h>
 #endif
 
+// GCC/Clang define these on linux which is against the C standard (linux and unix should not be reserved keywords)
+// instead, __linux__ and __unix__ is equivalent
+#ifdef linux
+#undef linux
+#endif
+#ifdef unix
+#undef unix
+#endif
 
 #if !defined(__clang__) && defined(_MSC_VER)
 using __UINT8_TYPE__ = unsigned __int8;
@@ -165,6 +175,31 @@ static_assert(sizeof(usize) == sizeof(void*) && sizeof(isize) == sizeof(void*));
 #endif
 
 ///
+/// Definition of macro for validation sanity checks.
+/// Any sanity check that fails will abort the process.
+/// Currently it only validates pointers.
+/// For a const pointer, it validates that it is readable by checking if a segfault occurs. if a segfault happens, it
+/// will print it nicely instead of showing the horrid addresssanitizer crash dump.
+/// For a non-const pointer, validates that it is readable and writable.
+///
+#define VALIDATE(obj)                                                                                                  \
+    do {                                                                                                               \
+        if !consteval {                                                                                                \
+            ::cm::validator::check<sizeof(#obj)>(obj, #obj);                                                           \
+        }                                                                                                              \
+    } while (0)
+
+///
+/// Same as validate, but allows checking a pointer of variable length.
+///
+#define VALIDATE_SIZED(obj, count)                                                                                     \
+    do {                                                                                                               \
+        if !consteval {                                                                                                \
+            ::cm::validator::checkBytes<sizeof(#obj)>(obj, count * sizeof(*obj), #obj);                                \
+        }                                                                                                              \
+    } while (0)
+
+///
 /// Misc macros
 ///
 
@@ -212,13 +247,13 @@ constexpr auto None = NoneType{};
  function, return is going to return from that lambda function instead of returning from the
  function using defer.
 */
-#define DEFER DeferredOperation __unique_name__(__defer) = [&]()
+#define DEFER DeferredOperation _unique_name_(__defer) = [&]()
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wreserved-macro-identifier"  // shut the fuck up bitch
-#define __concat_for_defer(a, b) __concat_for_defer_inner(a, b)
-#define __concat_for_defer_inner(a, b) a##b
-#define __unique_name__(base) __concat_for_defer(base, __COUNTER__)
+#define _concat_for_defer(a, b) _concat_for_defer_inner(a, b)
+#define _concat_for_defer_inner(a, b) a##b
+#define _unique_name_(base) _concat_for_defer(base, __COUNTER__)
 #pragma GCC diagnostic pop
 
 template<typename F>
@@ -362,6 +397,8 @@ void operator delete(void* ptr, std::size_t sz) noexcept;
 void operator delete[](void* ptr, std::size_t sz) noexcept;
 
 
+// Random stuff
+
 template<typename T, typename... Args>
 constexpr inline T* ConstructInPlace(void* ptr, Args&&... args)
 {
@@ -384,6 +421,15 @@ concept HasOutputStringMethod = requires (T value) {
     };
 };
 
+void setIfNull(auto*& ptr, auto val)
+{
+    if (ptr == nullptr) {
+        ptr = val;
+    }
+}
+
+auto getIfNull(auto* ptr, auto val) { return ptr != nullptr ? ptr : val; }
+
 namespace impl {
 constexpr void outputStringForPrimitiveType(auto const&, auto const&);
 }
@@ -397,8 +443,38 @@ constexpr void OutputString(T const& value, auto const& out)
         impl::outputStringForPrimitiveType(value, out);
     }
 }
-}  // namespace cm
 
+///
+/// Pre-initialization condition: Used for testing conditions to be true when the program starts running but before any
+/// program logic is executed.
+///
+struct PreInitAssertion
+{
+    bool (*test)();
+    char const* name;
+    char const* file;
+    int line;
+};
+
+///
+/// Adds a new pre-initialization condition.
+///
+void addPreInitAssertion(PreInitAssertion const& assertion);
+
+///
+/// Adds a new pre-initialization condition.
+/// @param cond The condition to test
+///
+#define runtime_assert(...)                                                                                            \
+    __attribute__((constructor(LibraryConfig::GLOBAL_CTOR_ADD_PRECONDITION_PRIO))) void _unique_name_(_precheck_)()    \
+    {                                                                                                                  \
+        addPreInitAssertion(                                                                                           \
+            PreInitAssertion{                                                                                          \
+                .test = [] -> bool { return (__VA_ARGS__); },                                                          \
+                .name = #__VA_ARGS__,                                                                                  \
+                .file = __FILE__,                                                                                      \
+                .line = __LINE__});                                                                                    \
+    }
 
 /*
  Equatable interface.
@@ -418,4 +494,8 @@ struct IEquatable
     constexpr inline bool operator==(auto const& x) const { return static_cast<Derived const*>(this)->equals(x); }
     constexpr inline bool operator!=(auto const& x) const { return !static_cast<Derived const*>(this)->equals(x); }
 };
+
+}  // namespace cm
+
+
 #endif

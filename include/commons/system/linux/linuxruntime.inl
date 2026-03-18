@@ -15,5 +15,14 @@
 #pragma once
 #ifdef __inline_core_header__
 
+namespace cm {
 
+[[noreturn]]
+inline void exit(int code)
+{
+    kernel::call(kernel::exit, code);
+    __builtin_unreachable();
+}
+
+}
 #endif

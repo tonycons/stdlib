@@ -20,61 +20,41 @@
 
 namespace cm {
 
+class StringBuf;
 
-///
-/// A non owning reference to a string.
-///
-struct StringRef final : public ArrayRef<char>
+/// Represents a non owning reference to a string.
+struct StringRef final : ArrayRef<char>
 {
-private:
-    using Base = ArrayRef;
+    using ArrayRef::ArrayRef;
 
-public:
-    using ArrayRef<char>::ArrayRef;
-    // using IEquatable<StringRef>::operator==;
-    // using IEquatable<StringRef>::operator!=;
-
-    ///
     /// Constructs a StringRef from a C-style null terminated string. Be careful that the string is actually null
     /// terminated
-    ///
-    constexpr StringRef(char const* str, usize len)
-        : Base(str, len + 1)
+    constexpr StringRef(char const* str, usize len)  // NOLINT
+        : ArrayRef(str, len + 1)
     {
         // Assert(str[len] == '\0');
     }
 
-    ///
     /// Constructs a StringRef from a C-style null terminated string.
-    ///
-    constexpr StringRef(char const* str)
-        : Base(str, CArrays::stringLen(str) + 1) /* Arrayref expects the length including null terminator */
+    constexpr StringRef(char const* str)             // NOLINT
+        : ArrayRef(str, CArrays::stringLen(str) + 1) /* ArrayRef expects the length including null terminator */
     {}
 
-    ///
     /// Constructs a StringRef from a char.
     /// How is this possible? It references a static, one-byte null terminated C string from a lookup table.
-    ///
-    constexpr StringRef(char ch)
-        : Base(::cm::Data::oneCharStringTable(ch), 2)
+    constexpr StringRef(char ch)  // NOLINT
+        : ArrayRef(::cm::Data::oneCharStringTable(ch), 2)
     {}
 
-    ///
     /// @return The length of the string
-    ///
     [[nodiscard]] constexpr usize length() const override
     {
-        return static_cast<usize>(::cm::max(0, static_cast<isize>(Base::length()) - 1));
+        return static_cast<usize>(::cm::max(0, static_cast<isize>(ArrayRef::length()) - 1));
     }
 
-    ///
     /// Returns a pointer to the string data. The returned pointer should not outlive ``*this``.
-    ///
     [[nodiscard]] constexpr char const* cstr() const noexcept { return this->data(); }
 
-    ///
-    /// The hash
-    ///
     template<typename Hasher>
     constexpr auto hash(auto seed)
     {
@@ -90,10 +70,6 @@ public:
         }
     }
 };
-
-
-class StringBuf;
-
 
 class Printable {
 public:
@@ -121,51 +97,34 @@ template<typename T>
 /// A base class providing functionality shared between String and FixedString.
 /// Derived must implement: insert and erase
 ///
-class StringBuf : public LinearIteratorComponent<StringBuf, char>, public Iterable<String> {
+class StringBuf : public IArray<char> {
 public:
     constexpr StringBuf() = default;
     constexpr StringBuf(StringBuf const&) = default;
 
-    virtual constexpr ~StringBuf() = default;
-
+    virtual constexpr char& operator[](Index const& i) = 0;
     virtual constexpr void erase(Index i, usize n) = 0;
     virtual constexpr void insert(Index i, StringRef const& s) = 0;
     virtual constexpr void fmt(StringRef const& fmt, ArrayRef<RefWrapper<Printable const>> const& args) = 0;
 
-    virtual constexpr auto length() const -> usize = 0;
+    [[nodiscard]] virtual constexpr auto cstr() -> char* = 0;
+    [[nodiscard]] virtual constexpr auto cstr() const -> char const* = 0;
 
-    virtual constexpr auto data() -> char* = 0;
-    virtual constexpr auto data() const -> char const* = 0;
+    [[nodiscard]] virtual constexpr auto find(StringRef const& substr, usize baseIndex) const -> Optional<usize> = 0;
 
-    virtual constexpr auto cstr() -> char* = 0;
-    virtual constexpr auto cstr() const -> char const* = 0;
+    [[nodiscard]] constexpr bool empty() const { return length() == 0; }
 
-    virtual constexpr auto operator[](Index i) -> char& = 0;
-    virtual constexpr auto operator[](Index i) const -> char = 0;
-
-    virtual constexpr auto find(StringRef const& substr, usize baseIndex) const -> Optional<usize> = 0;
-
-    //
-
-
-    constexpr usize sizeBytes() const { return length() * sizeof(char); }
-    constexpr bool empty() const { return length() == 0; }
+    /// Set the string to empty.
     constexpr void clear() { erase(0, length()); }
 
-    ///
     /// Alias for insert(length(), s);
-    ///
     constexpr void append(StringRef const& s) { return insert(length(), s); }
 
-    ///
     /// Alias for append.
-    ///
     constexpr void push(StringRef const& s) { return insert(length(), s); }
 
-    ///
     /// Removes the final character from the string
     /// @return The character that was removed from the end of the string
-    ///
     constexpr char pop()
     {
         char const c = (*this)[-1];
@@ -173,12 +132,10 @@ public:
         return c;
     }
 
-    ///
     /// Replace every occurrence of a substring with a replacement. This is NOT a regex.
     /// @param substr The substring to replace
     /// @param replacement The replacement string
     /// @note If used on FixedString, replacements that cause the string length to exceed capacity will be ignored.
-    ///
     constexpr void replace(StringRef const& substr, StringRef const& replacement) &
     {
         usize baseIndex = 0;
@@ -190,20 +147,16 @@ public:
         }
     }
 
-    ///
     /// Removes the final element if it is equal to some value.
     /// @note If the element is not a simple data type and is removed, its destructor is called.
     /// @param refValue The value to remove.
-    ///
     constexpr void removeSuffix(char refValue)
     {
         if (length() != 0 && (*this)[length() - 1] == refValue)
             erase(length() - 1, 1);
     }
 
-    ///
     /// Returns a reference to a segment of an array from startIndex (inclusive) to endIndex (exclusive)
-    ///
     constexpr StringRef slice(usize startIndex, usize endIndex)
     {
         UNSAFE_BEGIN;
@@ -213,23 +166,19 @@ public:
         UNSAFE_END;
     }
 
-    ///
     /// Builds a string according to a format specifier.
     /// tldr; similar to sprintf, except a backtick ` denotes an argument.
     /// Formal explanation: the string will equal the format specifier with each occurrence of the Nth format character
     /// (a backtick `) replaced with the string representation of the Nth argument to the function.
     /// @param sFmt format specifier
     /// @param args arguments
-    ///
     template<typename... Args>
     constexpr static void fmt(StringRef const& sFmt, Args... args)
     {
         fmt(sFmt, {PrintableT(args)...});
     }
 
-    ///
-    /// This needs no explanation..
-    ///
+    /// This needs no explanation
     constexpr static void outputString(StringBuf const& self, auto out)
     {
         for (char c : self) {
@@ -312,7 +261,6 @@ constexpr void PrintableT<T>::output(StringBuf& result) const
 }
 
 
-/*
 /// An owning string with a fixed-size storage buffer that is capable of expanding up to a given capacity.
 /// @tparam Capacity The maximum length of the string
 template<usize Capacity>
@@ -322,19 +270,22 @@ class FixedString : Iterable<FixedString<Capacity>>,
                     IComparable<FixedString<Capacity>> {
     UintRanged<Capacity> _length = 0;
     char _str[Capacity]{};
+    static_assert(sizeof(_str) == Capacity * sizeof(char));
 
 public:
     using Iterable<FixedString>::Iterable;
     using IEquatable<FixedString>::operator==;
     using IEquatable<FixedString>::operator!=;
 
+    constexpr FixedString() = default;
+
     /// Az
     // NOLINTNEXTLINE
     constexpr FixedString(char const* str)
     {
         if consteval {
-            while (*str != 0) {
-                _str[_length++] = *str++;
+            for (usize i = 0; i < Capacity - 1 && *str != '\0'; i++) {
+                _str[i] = str[i];
             }
         } else {
             __builtin_strncpy(_str, str, (Capacity - 1) * sizeof(char));
@@ -363,12 +314,33 @@ public:
         }
     }
 
+
+    [[gnu::format(printf, 1, 2)]]
+    constexpr static FixedString cformat(char const* fmt_, ...)
+    {
+        FixedString result;
+
+        __builtin_va_list args;
+        __builtin_va_start(args, fmt_);
+
+        __builtin_memset_inline(result._str, 0, sizeof(_str));
+        result._length = static_cast<UintRanged<Capacity>>(
+            min(Capacity - 1,
+                static_cast<usize>(__builtin_vsnprintf(result._str, sizeof(_str) - sizeof(char), fmt_, args))));
+
+        __builtin_va_end(args);
+        return result;
+    }
+
+    constexpr static FixedString format(StringRef const& fmt, auto&&... args);
+
+
     constexpr auto data() const noexcept { return this->_str; }
     constexpr auto cstr() const noexcept { return this->data(); }
     constexpr usize length() const noexcept { return _length; }
     constexpr auto sizeBytes() const noexcept { return length() * sizeof(char); }
 };
-*/
+
 
 }  // namespace cm
 

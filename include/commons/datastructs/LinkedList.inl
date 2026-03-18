@@ -141,16 +141,16 @@ inline DLList::Container::~Container() { clear(); }
 [[clang::noinline]]
 inline void DLList::Container::clear()
 {
-    if (_objclass.destructor) {  // avoid evaluating the if statement inside the loop repeatedly
+    if (_objclass.destructor.hasValue()) {  // avoid evaluating the if statement inside the loop repeatedly
         for (auto n = _head; n != nullptr;) {
-            auto tmp = n->next;
+            auto const tmp = n->next;
             UNSAFE(_objclass.destructor(reinterpret_cast<u8*>(n) + sizeof(Node)));
             delete[] n;
             n = tmp;
         }
     } else {
         for (auto n = _head; n != nullptr;) {
-            auto tmp = n->next;
+            auto const tmp = n->next;
             delete[] n;
             n = tmp;
         }

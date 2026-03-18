@@ -18,219 +18,95 @@
 
 #pragma once
 
-#include "system.hh"  // IWYU pragma: keep
+#include "system.hh"                   // IWYU pragma: keep
+#include "config.hh"                   // IWYU pragma: keep
+#include "runtime/globals.hh"          // IWYU pragmaL keep
+#include "runtime/symbols.hh"          // IWYU pragma: keep
+#include "runtime/instrumentation.cc"  // IWYU pragma: keep
+#include "runtime/validator.cc"        // IWYU pragma: keep
 
-
-#if __has_feature(address_sanitizer)
-#include <sanitizer/asan_interface.h>
-#include <sanitizer/common_interface_defs.h>
-#elif __has_feature(dataflow_sanitizer)
-#include <sanitizer/dfsan_interface.h>
-#endif
 #if __linux__
-#include <csignal>  // IWYU pragma: keep
-
-extern "C" usize malloc_usable_size(void*);
-extern "C" void* malloc(size_t);
-extern "C" void* aligned_alloc(size_t, size_t);
-extern "C" void free(void*);
-
-
-inline u32 cm::FastPRNG::_state;
-;
-inline u32 cm::ND_PRNG::_state;
-;
+// Fun fact: any identifier starting with sa_ is reserved when <signal.h> is included!
+#include <stdlib.h>
+#include <malloc.h>
+#endif
 
 
 namespace cm {
 
-struct
-{
-    usize bytesAllocated;
-} static MemoryStats;
-
+///
+/// Implementation of the panic function
+///
 [[noreturn]]
 inline void ::cm::panic(char const* message, char const* reason, SourceLocation const& src)
 {
-    if (message == nullptr)
-        message = "";
-
-    if (reason == nullptr)
-        reason = "";
+    startup::panicMutex.lock();
+    setIfNull(message, "");
+    setIfNull(reason, "");
 
     auto write = [](char const* str, usize len) {
-        LinuxSyscall(LinuxSyscall.write, 2, reinterpret_cast<u64>(str), len);
+        kernel::call(kernel::write, kernel::stderr, str, len);
     };
     write("\x1B[31m", sizeof("\x1B[31m"));
     write(message, CArrays::stringLen(message));
-
-    if (src.function() != nullptr || src.file() != nullptr) {
-        write((" in "), 4);
-    }
-    if (src.function() != nullptr) {
-        write((src.function()), CArrays::stringLen(src.function()));
-    }
-    if (src.file() != nullptr) {
-        write((" at \""), 5);
-        write(src.file(), CArrays::stringLen(src.file()));
-        write("\"", 1);
-    }
-    if (reason != nullptr) {  // NOLINT
-        write(".\n\treason: ", 11);
-        write(reason, CArrays::stringLen(reason));
-    }
+    write(" in ", 4);
+    write(getIfNull(src.function(), "<unknown function>"), CArrays::stringLen(src.function()));
+    write((" at \""), 5);
+    write(getIfNull(src.file(), "<unknown file>"), CArrays::stringLen(src.file()));
+    write("\"", 1);
     Profiler::printStackTrace();
     write("\x1B[0m", sizeof("\x1B[0m"));
-    __builtin_trap();
-    //_exit(-1);
+    startup::panicMutex.unlock();
+    CPU::trap();
 }
 
-inline void _emergencyPrint(char const* msg)
+
+///
+/// Global constructors
+///
+
+
+///
+/// Adds a new precondition
+///
+void ::cm::addPreInitAssertion(PreInitAssertion const& assertion)
 {
-    auto write = [](char const* str, usize len) {
-        LinuxSyscall(LinuxSyscall.write, 2, reinterpret_cast<u64>(str), len);
-    };
-    write(msg, CArrays::stringLen(msg));
+    if (startup::preInitAssertionsCount >= LibraryConfig::MAX_PRE_INIT_ASSERTIONS) {
+        _emergencyPrint("Maximum number of PreInitAssertions exceeded\n");
+        CPU::trap();
+    }
+    startup::preInitAssertions[startup::preInitAssertionsCount] = assertion;
+    ++startup::preInitAssertionsCount;
 }
 
-}  // namespace cm
-#endif
-
-
-namespace cm {
-namespace startup {
-
-constexpr static auto MAX_PROFILER_STACK_FRAMES = 65_KB;
-static FixedArray<::cm::Profiler::StackFrame, MAX_PROFILER_STACK_FRAMES> s_stackFrames;
-static unsigned int s_currentStackFrameIndex{};
-static bool s_printed = false;
-static FixedArray<char, 1024> s_stackTraceBuffer;
-}
-
-[[gnu::no_instrument_function]]
-inline void Profiler::printStackTrace()
+///
+/// Verifies all the preconditions are true before main starts.
+///
+[[gnu::constructor(LibraryConfig::GLOBAL_CTOR_PRECONDITION_CHECK_PRIO), gnu::no_instrument_function]]
+void checkPreInitAssertions(usize max_fails = LibraryConfig::MAX_PRE_INIT_FAILURES)
 {
-    if (startup::s_printed)
-        return;
-
-    startup::s_printed = true;
-    char buf[48];
-    __builtin_sprintf(buf, "\nMemory: %zu bytes", MemoryStats.bytesAllocated);
-    _emergencyPrint(buf);
-    _emergencyPrint("\nStack Trace:\n");
-#if __has_feature(address_sanitizer)
-    __sanitizer_print_stack_trace();
-    _emergencyPrint("\n");
-#elif __has_feature(dataflow_sanitizer)
-    dfsan_sprint_stack_trace(s_stackTraceBuffer, 1024);
-    _emergencyPrint(s_stackTraceBuffer);
-    _emergencyPrint("\x1B[0m\n");
-#else
-    //
-#endif
-    // Assert(s_currentStackFrameIndex < MAX_PROFILER_STACK_FRAMES, "Profiler: currentStackFrameIndex OOB");
-    // io::_emergencyPrint("\nStack Trace:\n");
-
-    // for (long long i = s_currentStackFrameIndex; i >= 0; i--) {
-    //     StackFrame const& stackFrame = s_stackFrames[i];
-    //     io::_emergencyPrint("\t");
-    //     io::_emergencyPrint(String::valueOf(stackFrame.funcAddr).cstr());
-
-    // #if __has_feature(address_sanitizer)
-    //         __asan_describe_address(const_cast<void*>(stackFrame.callAddr));
-    // #endif
-    //         io::_emergencyPrint(" at \"");
-    //         io::_emergencyPrint("<unknown>");
-    //         io::_emergencyPrint(":");
-    //         io::_emergencyPrint("<line>");
-    //         io::_emergencyPrint(":");
-    //         io::_emergencyPrint("<column>");
-    //         io::_emergencyPrint("\"\n");
-    //     }
-}
-/**
- * @param funcAddr A pointer to the address of the function being entered.
- * @param callAddr A pointer to the address of the instruction that called the current function.
- * The no_instrument_function attribute must be applied to prevent infinite recursion, as these functions should not be
- * instrumented themselves.
- */
-extern "C" [[maybe_unused, gnu::no_instrument_function]]
-inline void __cyg_profile_func_enter(void* funcAddr, void* callAddr)  // NOLINT
-{
-    startup::s_currentStackFrameIndex++;
-    if (startup::s_currentStackFrameIndex >= startup::MAX_PROFILER_STACK_FRAMES) {
-        __builtin_trap();
+    usize fails = 0;
+    for (usize i = 0; i < startup::preInitAssertionsCount; i++) {
+        auto const& t = startup::preInitAssertions[i];
+        if (!t.test()) {
+            console.out.println(
+                R"(`test failed: "`" at "`:``")", LibraryConfig::CONSOLE_ERROR_HIGHLIGHT_BEGIN, t.name, t.file, t.line,
+                LibraryConfig::CONSOLE_ERROR_HIGHLIGHT_END);
+            ++fails;
+            if (fails == max_fails) {
+                break;
+            }
+        }
+    }
+    if (fails == 0) {
+        console.out.println("All tests successful!");
     } else {
-        startup::s_stackFrames[startup::s_currentStackFrameIndex] = {funcAddr, callAddr, 0};
+        console.out.println(
+            "`Testing stopped with ` failure``", LibraryConfig::CONSOLE_ERROR_HIGHLIGHT_BEGIN, fails,
+            fails == 1 ? "." : "s.", LibraryConfig::CONSOLE_ERROR_HIGHLIGHT_END);
+        exit(-1);
     }
 }
-
-/**
- * @param funcAddr A pointer to the address of the function being exited.
- * @param callAddr A pointer to the address of the instruction that called the current function.
- * The no_instrument_function attribute must be applied to prevent infinite recursion, as these functions should not be
- * instrumented themselves.
- */
-extern "C" [[maybe_unused, gnu::no_instrument_function]]
-inline void __cyg_profile_func_exit(void* funcAddr, void* callAddr)  // NOLINT
-{
-    (void)funcAddr;
-    (void)callAddr;
-    if (startup::s_currentStackFrameIndex <= 0) {
-        __builtin_trap();
-    } else {
-        startup::s_stackFrames[startup::s_currentStackFrameIndex].tElapsed = 0;
-        startup::s_currentStackFrameIndex--;
-    }
-}
-
-#if __linux
-///
-/// This registers a signal handler in order to print the stack trace when an error like segfault or trap occurs.
-///
-[[gnu::constructor(100), gnu::no_instrument_function]]
-inline void signalHandlers()
-{
-    constexpr struct sigaction segFaultHandler{
-#ifdef sa_handler
-#define old_sa_handler sa_handler
-#undef sa_handler
-        .__sigaction_handler.sa_handler
-#define sa_handler old_sa_handler
-#else
-        .sa_handler
-#endif
-        = [] [[gnu::no_instrument_function]] (int) -> void {
-            _emergencyPrint("\x1B[31mSegmentation Fault\n");
-            Profiler::printStackTrace();
-            _emergencyPrint("\x1B[0m");
-            raise(SIGKILL);
-        },
-        .sa_mask = {0},
-        .sa_flags = 0,
-        .sa_restorer = nullptr};
-
-    constexpr struct sigaction trapHandler{
-#ifdef sa_handler
-#undef sa_handler
-        .__sigaction_handler.sa_handler
-#else
-        .sa_handler
-#endif
-        = [] [[gnu::no_instrument_function]] (int) -> void {
-            _emergencyPrint("\x1B[31mPanic: Program halted (CPU trap)\n");
-            Profiler::printStackTrace();
-            _emergencyPrint("\x1B[0m");
-            raise(SIGKILL);
-        },
-        .sa_mask = {0},
-        .sa_flags = 0,
-        .sa_restorer = nullptr};
-
-    sigaction(SIGSEGV, &segFaultHandler, nullptr);
-    sigaction(SIGILL, &trapHandler, nullptr);
-}
-#endif
 
 }  // namespace cm
 
@@ -246,94 +122,69 @@ inline void* newImpl(std::size_t const size, std::align_val_t alignment)
     } else {
         ptr = aligned_alloc(static_cast<size_t>(alignment), size);
     }
-    cm::MemoryStats.bytesAllocated += size;
+    cm::startup::memoryStats.bytesAllocated += size;
     ::cm::Assert(ptr);
-
-    //__builtin_printf("allocated %p + %zu\n", ptr, size);
-
     return ptr;
 }
 
 inline void* newImplNothrow(std::size_t const size, std::align_val_t alignment) noexcept
 {
     void* ptr = aligned_alloc(static_cast<size_t>(alignment), size);
-    ::cm::MemoryStats.bytesAllocated += size;
+    ::cm::startup::memoryStats.bytesAllocated += size;
     ::cm::Assert(ptr);
-
-    //__builtin_printf("allocated %p + %zu\n", ptr, size);
-
     return ptr;
-    // return GC_alloc(size, size_t(alignment));
 }
 
-inline void deleteImpl(void* ptr)
+inline void deleteImpl(void* ptr, usize size = 1)
 {
-
-    // GC_free(ptr);
+    VALIDATE_SIZED(static_cast<u8*>(ptr), size);
     auto sz = malloc_usable_size(ptr);
     free(ptr);
-
-    //__builtin_printf("deleting %p\n", ptr);
-
-
-    if (sz > ::cm::MemoryStats.bytesAllocated) {
-        sz = ::cm::MemoryStats.bytesAllocated;
+    if (sz > ::cm::startup::memoryStats.bytesAllocated) {
+        sz = ::cm::startup::memoryStats.bytesAllocated;
     }
-    ::cm::MemoryStats.bytesAllocated -= sz;
+    ::cm::startup::memoryStats.bytesAllocated -= sz;
     (void)ptr;
 }
 
 
-///
-///
-///
+//
 
-void* operator new(std::size_t size) { return newImpl(size, DEFAULT_ALIGNMENT); }
+void* operator new(usize size) { return newImpl(size, DEFAULT_ALIGNMENT); }
 
-void* operator new[](std::size_t size) { return newImpl(size, DEFAULT_ALIGNMENT); }
+void* operator new[](usize size) { return newImpl(size, DEFAULT_ALIGNMENT); }
 
-void* operator new(std::size_t size, std::align_val_t al) { return newImpl(size, al); }
+void* operator new(usize size, std::align_val_t al) { return newImpl(size, al); }
 
-void* operator new[](std::size_t size, std::align_val_t al) { return newImpl(size, al); }
+void* operator new[](usize size, std::align_val_t al) { return newImpl(size, al); }
 
+void* operator new(usize size, std::nothrow_t const&) noexcept { return newImplNothrow(size, DEFAULT_ALIGNMENT); }
 
-///
-///
-///
-///
+void* operator new[](usize size, std::nothrow_t const&) noexcept { return newImplNothrow(size, DEFAULT_ALIGNMENT); }
 
-void* operator new(std::size_t size, std::nothrow_t const&) noexcept { return newImplNothrow(size, DEFAULT_ALIGNMENT); }
+void* operator new(usize size, std::align_val_t al, std::nothrow_t const&) noexcept { return newImplNothrow(size, al); }
 
-void* operator new[](std::size_t size, std::nothrow_t const&) noexcept
-{
-    return newImplNothrow(size, DEFAULT_ALIGNMENT);
-}
-
-void* operator new(std::size_t size, std::align_val_t al, std::nothrow_t const&) noexcept
+void* operator new[](usize size, std::align_val_t al, std::nothrow_t const&) noexcept
 {
     return newImplNothrow(size, al);
 }
 
-void* operator new[](std::size_t size, std::align_val_t al, std::nothrow_t const&) noexcept
-{
-    return newImplNothrow(size, al);
-}
-
-///
-///
-///
-///
+//
 
 void operator delete(void* ptr) noexcept { return deleteImpl(ptr); }
 
 void operator delete[](void* ptr) noexcept { return deleteImpl(ptr); }
 
-void operator delete(void* ptr, __SIZE_TYPE__) noexcept { return deleteImpl(ptr); }
+void operator delete(void* ptr, usize size) noexcept { return deleteImpl(ptr, size); }
 
-void operator delete[](void* ptr, __SIZE_TYPE__) noexcept { return deleteImpl(ptr); }
+void operator delete[](void* ptr, usize size) noexcept { return deleteImpl(ptr, size); }
 
-extern "C" [[noreturn]]
-void __cxa_pure_virtual()  // NOLINT
+extern "C" void __cxa_pure_virtual()  // NOLINT
 {
     __builtin_trap();
 }
+
+
+#ifdef sa_handler
+#undef sa_handler
+#endif

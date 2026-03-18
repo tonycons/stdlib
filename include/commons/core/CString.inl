@@ -17,8 +17,13 @@
 #ifndef __inline_core_header__
 #warning Do not include this file directly; include "core.hh" instead
 #else
+
+
 UNSAFE_BEGIN;
 
+#if 0
+#include <string.h>
+#else
 extern "C" {
 
 constexpr void* memset(void* dst, int c, usize n)
@@ -550,5 +555,6 @@ long long atoll(char const* s)
 */
 }
 
+#endif
 UNSAFE_END;
 #endif

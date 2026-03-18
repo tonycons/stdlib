@@ -49,7 +49,7 @@ struct Index : Union<isize, usize>
     NODISCARD FORCEINLINE constexpr auto compute(auto const& a) const
     {
         usize i = computeUnchecked(a);
-        Assert(i < a.length(), ASMS_BOUNDS);
+        Assert(i < a.length(), ASSERT_MSG_BOUNDS);
         return i;
     }
 

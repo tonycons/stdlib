@@ -19,45 +19,48 @@
 #ifdef __inline_core_header__
 
 
-struct
-{
+namespace kernel {
 #define __inline_system_header__
 #if __x86_64__
 #include "syscall_linux_x64.inl"
+
+
 #else
 #error "Unimplemented"
 #endif
 #undef __inline_system_header__
 
-    [[maybe_unused]] FORCEINLINE static u64 operator()(int num)
-    {  //
-        return Syscall(num);
-    }
-    [[maybe_unused]] FORCEINLINE static u64 operator()(int num, u64 p1)
-    {  //
-        return Syscall(num, p1);
-    }
-    [[maybe_unused]] FORCEINLINE static u64 operator()(int num, u64 p1, u64 p2)
-    {  //
-        return Syscall(num, p1, p2);
-    }
-    [[maybe_unused]] FORCEINLINE static u64 operator()(int num, u64 p1, u64 p2, u64 p3)
+constexpr auto stdin = 0;
+constexpr auto stdout = 1;
+constexpr auto stderr = 2;
+
+constexpr auto SeekSet = 0;
+constexpr auto SeekCur = 1;
+constexpr auto SeekEnd = 2;
+
+struct CallResult
+{
+    u64 value;
+    template<typename T>
+    T cast()
     {
-        return Syscall(num, p1, p2, p3);
+        return static_cast<T>(value);
     }
-    [[maybe_unused]] FORCEINLINE static u64 operator()(int num, u64 p1, u64 p2, u64 p3, u64 p4)
+    template<typename T>
+    T bits()
     {
-        return Syscall(num, p1, p2, p3, p4);
+        return bit_cast<T>(value);
     }
-    [[maybe_unused]] FORCEINLINE static u64 operator()(int num, u64 p1, u64 p2, u64 p3, u64 p4, u64 p5)
-    {
-        return Syscall(num, p1, p2, p3, p4, p5);
-    }
-    [[maybe_unused]] FORCEINLINE static u64 operator()(int num, u64 p1, u64 p2, u64 p3, u64 p4, u64 p5, u64 p6)
-    {
-        return Syscall(num, p1, p2, p3, p4, p5, p6);
-    }
-} inline constexpr LinuxSyscall;
+};
+
+template<typename... Args>
+requires (sizeof...(Args) <= 6 && ((IsPointer<Args> || IsInteger<Args>), ...))
+static CallResult call(int num, Args... args)
+{
+    return CallResult{_exec(num, u64(args)...)};  // NOLINT
+}
+
+}  // namespace kernel
 
 
 namespace impl {

@@ -1,12 +1,18 @@
 #!/bin/bash
 
+# This script can build and run a single test file without the need for CMake
+# Usage: ./run <path-to-test.cc>
+
 set -e
 
 args=(
     -std=c++26
     -Os
-    -glldb
+    -g
     -Weverything
+    -Werror
+    -ftemplate-backtrace-limit=0
+    -Wunsafe-buffer-usage
     -fsafe-buffer-usage-suggestions
     -Wnonnull
     -Wno-global-constructors
@@ -48,6 +54,8 @@ args=(
     #
     -fverbose-asm
     -fstack-clash-protection
+    -finstrument-functions # necessary for instrumentation and profiling
+    -Wl,--export-dynamic # also necessary for instrumentation- to allow program to find its function names
     #-fsanitize=dataflow
     #-mllvm=-dfsan-track-origins=0
     #-mllvm=-dfsan-combine-pointer-labels-on-load=false

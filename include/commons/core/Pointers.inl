@@ -43,6 +43,40 @@ enum Access : u8 {
     READ_WRITE_BITS = READ_BIT | WRITE_BIT
 };
 
+// TODO
+
+// struct RefCounter
+// {
+// public:
+//     void inc() const { _count.add(1, Atomicity::Relaxed); }
+//     void dec() const
+//     {
+//         if (_count.fetchSub(1, Atomicity::Release) == 1) {
+//             _count.fence();
+//             delete this;
+//         }
+//     }
+//     usize get() const { return _count.load(Atomicity::Relaxed); }
+
+// private:
+//     mutable Atomic<usize> _count{};
+// };
+
+// template<typename T>
+// struct AtomicSharedPtr
+// {
+// private:
+//     T* _ptr;
+//     Atomic<usize>* _count;
+
+// public:
+//     AtomicSharedPtr(T* ptr)
+//         : _ptr(ptr), _count(new Atomic<usize>(1))
+//     {}
+
+// ~AtomicSharedPtr()
+// };
+
 
 struct Ptr
 {

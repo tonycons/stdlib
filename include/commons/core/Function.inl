@@ -19,113 +19,109 @@
 
 namespace cm {
 
-
+///
+/// A base interface for a callable function object.
+///
 template<typename>
-class CFunction;
+struct IFunction;
+template<typename ReturnType_, typename... Args>
+struct IFunction<ReturnType_(Args...)>
+{
+protected:
+    constexpr IFunction() = default;
+    constexpr IFunction(IFunction const&) = default;
+    constexpr IFunction& operator=(IFunction const&) = default;
+    constexpr IFunction(IFunction&&) = default;
+    constexpr IFunction& operator=(IFunction&&) = default;
 
+public:
+    using ReturnType = ReturnType_;
+    virtual constexpr ~IFunction() = default;
+    virtual constexpr ReturnType operator()(Args&&... args) const = 0;
+};
 
 ///
 /// A wrapper for declaring C-style function pointer types.
 /// Unlike Function, it can't keep a pointer to a lambda function that has captures.
 ///
+template<typename>
+class CFunction;
 template<typename ReturnType_, typename... Args>
-class CFunction<ReturnType_(Args...)> : IEquatable<CFunction<ReturnType_(Args...)>> {
+class CFunction<ReturnType_(Args...)> : IFunction<ReturnType_(Args...)>, IEquatable<CFunction<ReturnType_(Args...)>> {
 public:
     using ReturnType = ReturnType_;
     using PtrType = ReturnType (*)(Args...);
 
-    constexpr inline CFunction(CFunction const&) = default;
-    constexpr inline CFunction& operator=(CFunction const&) = default;
-    constexpr inline CFunction(CFunction&&) = default;
-    constexpr inline CFunction& operator=(CFunction&&) = default;
+    constexpr CFunction(CFunction const&) = default;
+    constexpr CFunction& operator=(CFunction const&) = default;
+    constexpr CFunction(CFunction&&) = default;
+    constexpr CFunction& operator=(CFunction&&) = default;
 
-    constexpr inline CFunction() noexcept
+    constexpr CFunction() noexcept
         : _func(nullptr)
     {}
 
-    constexpr inline CFunction(ReturnType (*funcPtr)(Args...)) noexcept
+    constexpr CFunction(ReturnType (*funcPtr)(Args...)) noexcept  // NOLINT
         : _func(funcPtr)
     {}
 
-    constexpr inline CFunction& operator=(ReturnType (*funcPtr)(Args...)) noexcept
+    constexpr CFunction& operator=(ReturnType (*funcPtr)(Args...)) noexcept
     {
         _func = funcPtr;
         return *this;
     }
 
-    constexpr inline bool equals(CFunction const& other) const { return _func == other._func; }
-    constexpr inline bool equals(ReturnType (*funcPtr)(Args...)) const { return _func == funcPtr; }
-
-    constexpr inline ReturnType operator()(Args... args) const { return _func(args...); }
-    constexpr inline operator bool() const { return _func != nullptr; }
-    constexpr inline operator PtrType() const { return _func; }
+    constexpr bool equals(CFunction const& other) const { return _func == other._func; }
+    constexpr bool equals(ReturnType (*funcPtr)(Args...)) const { return _func == funcPtr; }
+    constexpr ReturnType operator()(Args&&... args) const override { return _func(Forward<Args>(args)...); }
+    constexpr bool hasValue() const { return _func != nullptr; }
+    constexpr PtrType toPointer() const { return _func; }
 
 private:
     ReturnType (*_func)(Args...);
 };
 
-
-template<usize, typename>
-struct Function;
-
 ///
 /// An extension of CFunction that can store capturing lambdas.
 ///
+template<usize, typename>
+struct Closure;
 template<usize Size, typename ReturnType, typename... Args>
-struct Function<Size, ReturnType(Args...)> : CFunction<ReturnType(Args...)>
+struct Closure<Size, ReturnType(Args...)> : IFunction<ReturnType(Args...)>, NonCopyable, NonMovable
 {
 private:
     struct Callable
     {
-        virtual ~Callable() = default;
-        virtual ReturnType invoke(Args...) = 0;
-        decltype(0uz) refcount = 1uz;
+        virtual constexpr ~Callable() = default;
+        virtual constexpr ReturnType invoke(Args...) = 0;
     };
 
     template<typename T>
-    class CallableT : public Callable {
+    struct CallableT final : Callable
+    {
         T t_;
-
-    public:
-        CallableT(T const& t)
+        constexpr CallableT(T const& t)
             : t_(t)
         {}
-        ~CallableT() override = default;
-        ReturnType invoke(Args... args) override { return t_(args...); }
+        constexpr ~CallableT() override = default;
+        constexpr ReturnType invoke(Args... args) override { return t_(args...); }
     };
 
-    Callable* _callable;
+    // Data storage for the lambda captures
+    u8 _data[Size]{};
+    // Instance of the callable
+    Callable* _callable{};
 
 public:
-    Function(Function const&) = delete;
-    Function& operator=(Function const&) = delete;
-
-
     template<typename T>
-    inline Function(T&& t) requires (IsCallableAndReturns<T, ReturnType, Args...>)
-        : _callable(new CallableT<T>(t))
-    {}
-
-    constexpr inline Function(Function&& other) noexcept
-        : _callable(other._callable)
+    constexpr explicit Closure(T&& t) requires (IsCallableAndReturns<T, ReturnType, Args...>)
+        : _callable(new (_data) CallableT<T>(t))
     {
-        other._callable = nullptr;
+        static_assert(sizeof(t) <= sizeof(_data));
     }
 
-    inline ~Function()
-    {
-        if (_callable) {
-            delete _callable;
-        }
-    }
-
-    // template<typename T>
-    // Function& operator=(T t) {
-    //     callable_ = std::make_unique<CallableT<T>>(t);
-    //     return *this;
-    // }
-
-    ReturnType operator()(Args... args) const { return _callable->invoke(args...); }
+    constexpr ~Closure() override = default;
+    constexpr ReturnType operator()(Args&&... args) const override { return _callable->invoke(Forward<Args>(args)...); }
 };
 
 

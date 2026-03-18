@@ -33,7 +33,7 @@ public:
     {
         // Assert(_buffer.sizeBytes() >= 0);
         // auto r =
-        LinuxSyscall(LinuxSyscall.write, static_cast<usize>(_fd), reinterpret_cast<usize>(data), sizeBytes);
+        kernel::call(kernel::write, _fd, reinterpret_cast<usize>(data), sizeBytes);
 
         // if (r < 0) {
         //     //_state = STATUS_FAILED_FLUSH;
@@ -57,17 +57,19 @@ public:
     consteval inline LinuxStandardErrOutStream() { this->_fd = 2; }
 };
 
-///
-/// An Optional standard output stream.
-/// It may be set to None on systems that don't have a standard output stream.
-///
-constexpr inline auto stdout = LinuxStandardOutStream();
+struct Console
+{
+    ///
+    /// An Optional standard output stream.
+    /// It may be set to None on systems that don't have a standard output stream.
+    ///
+    constexpr static auto out = LinuxStandardOutStream();
 
-///
-/// An Optional standard error stream.
-/// It may be set to None on systems that don't have a standard error stream.
-///
-constexpr inline auto stderr = LinuxStandardErrOutStream();
-
+    ///
+    /// An Optional standard error stream.
+    /// It may be set to None on systems that don't have a standard error stream.
+    ///
+    constexpr static auto err = LinuxStandardErrOutStream();
+} inline console;
 
 #endif

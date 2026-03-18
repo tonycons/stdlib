@@ -30,7 +30,7 @@ constexpr auto
     ASMS_NO_MEMORY        = "Out of memory",
     ASMS_BAD_CIRCUMSTANCE = "Function called under the wrong circumstances",
     ASMS_PARAMETER        = "Invalid parameter",
-    ASMS_BOUNDS           = "Index out of bounds";
+    ASSERT_MSG_BOUNDS           = "Index out of bounds";
 
 #define ASMS_INVALID(NAME) "Invalid parameter \""#NAME"\""
 // clang-format on
@@ -82,12 +82,12 @@ public:
 /// Terminates the program if something goes terribly wrong..
 ///
 [[noreturn]]
-void panic(char const* message, char const* reason, SourceLocation src);
+void panic(char const* message, char const* reason, SourceLocation const& src);
 
 ///
 /// Panics if CONDITION is false.
 ///
-constexpr void Assert(bool CONDITION, char const* message = "", SourceLocation src = SourceLocation::current())
+constexpr void Assert(bool CONDITION, char const* message = "", SourceLocation const& src = SourceLocation::current())
 {
     (void)message;
     if CONSTANT_EVALUATED {

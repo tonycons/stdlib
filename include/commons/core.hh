@@ -16,7 +16,7 @@
 */
 
 #pragma once
-#define __inline_core_header__
+#define __inline_core_header__  // NOLINT
 
 #include "core/BaseDefs.inl"                // IWYU pragma: keep
 #include "resources/OneCharStringTable.hh"  // IWYU pragma: keep
@@ -30,6 +30,7 @@
 #include "core/FunctionReflection.inl"      // IWYU pragma: keep
 #include "core/Function.inl"                // IWYU pragma: keep
 #include "core/IntDefs.inl"                 // IWYU pragma: keep
+#include "core/Atomic.inl"                  // IWYU pragma: keep
 #include "core/Assert.inl"                  // IWYU pragma: keep
 #include "core/ComputedProperty.inl"        // IWYU pragma: keep
 #include "core/Pointers.inl"                // IWYU pragma: keep
@@ -43,8 +44,7 @@
 #include "core/ArrayIterator.inl"           // IWYU pragma: keep
 #include "core/Index.inl"                   // IWYU pragma: keep
 #include "core/Iterable.hh"                 // IWYU pragma: keep
-#include "core/IArray.hh"                   // IWYU pragma: keep
-#include "core/ArrayRef.inl"                // IWYU pragma: keep
+#include "core/Array.inl"                   // IWYU pragma: keep
 #include "core/IntMath.inl"                 // IWYU pragma: keep
 #include "core/FloatMath.inl"               // IWYU pragma: keep
 #include "core/DoubleMath.inl"              // IWYU pragma: keep
@@ -53,6 +53,7 @@
 #include "core/Hashing.inl"                 // IWYU pragma: keep
 #include "core/Search.inl"                  // IWYU pragma: keep
 #include "core/Predicates.inl"              // IWYU pragma: keep
+#include "core/Allocator.hh"                // IWYU pragma: keep
 
 namespace cm {}  // namespace cm
 
