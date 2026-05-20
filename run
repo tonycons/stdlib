@@ -10,6 +10,7 @@ args=(
     -Os
     -g
     -Weverything
+    -Wodr
     -Werror
     -ftemplate-backtrace-limit=0
     -Wunsafe-buffer-usage
@@ -71,6 +72,7 @@ args=(
     #-flto=full
     #-fvirtual-function-elimination
     #-fwhole-program-vtables
+    -lraylib
     -I ./include/
     $1
     -o ./build/test.out
@@ -79,6 +81,6 @@ args=(
 clang++ "${args[@]}"
 
 
-clang -I ./include/ -E ./test/blank.cc > ./include/commons/everything-linux.txt
+clang -I ./include/ -E ./temp/blank.cc > ./include/commons/everything-linux.txt
 
 ./build/test.out

@@ -23,7 +23,7 @@ namespace validator {
 /// validates that a pointer is readable.
 /// if a segfault happens, this will print it nicely instead of showing the horrid addresssanitizer crash dump
 template<size_t namesize>
-void check(auto const* ptr, char const* name, SourceLocation const& loc_ = SourceLocation::current())
+void check(auto const* ptr, char const* name, SourceLocation const& loc_)
 {
     using T = CVRefRemoved<decltype(*ptr)>;
     // save message
@@ -36,7 +36,7 @@ void check(auto const* ptr, char const* name, SourceLocation const& loc_ = Sourc
     validator::_detail = "Memory not readable";
     // force a dummy read of the pointer. If a segfault happens, the segfault handler will take care of printing.
     asm volatile("" ::: "memory");
-    *reinterpret_cast<T const volatile*>(ptr);
+    (void volatile) * reinterpret_cast<FixedArray<u8, sizeof(T)> const volatile*>(ptr);
     asm volatile("" ::: "memory");
     validator::checking = false;
 }
@@ -44,7 +44,7 @@ void check(auto const* ptr, char const* name, SourceLocation const& loc_ = Sourc
 /// validates that a pointer is readable and writable.
 /// if a segfault happens, this will print it nicely instead of showing the horrid addresssanitizer crash dump
 template<size_t namesize>
-void check(auto* ptr, char const* name, SourceLocation const& loc_ = SourceLocation::current())
+void check(auto* ptr, char const* name, SourceLocation const& loc_)
 {
     using T = CVRefRemoved<decltype(*ptr)>;
     // save message
@@ -68,7 +68,7 @@ void check(auto* ptr, char const* name, SourceLocation const& loc_ = SourceLocat
 
 // validates that a pointer (of unknown type but variable size) is readable.
 template<size_t namesize>
-void checkBytes(void const* ptr, usize size, char const* name, SourceLocation const& loc_ = SourceLocation::current())
+void checkBytes(void const* ptr, usize size, char const* name, SourceLocation const& loc_)
 {
     auto bytes = static_cast<u8 const*>(ptr);
     for (usize i = 0; i < size; i++) {
@@ -78,7 +78,7 @@ void checkBytes(void const* ptr, usize size, char const* name, SourceLocation co
 
 // validates that a pointer (of unknown type but variable size) is readable and writable.
 template<size_t namesize>
-void checkBytes(void* ptr, usize size, char const* name, SourceLocation const& loc_ = SourceLocation::current())
+void checkBytes(void* ptr, usize size, char const* name, SourceLocation const& loc_)
 {
     auto bytes = static_cast<u8*>(ptr);
     for (usize i = 0; i < size; i++) {
@@ -89,7 +89,7 @@ void checkBytes(void* ptr, usize size, char const* name, SourceLocation const& l
 // Print the message when a validator sanity check fails
 void printFailure()
 {
-    _emergencyPrint(
+    panicPrint(
         FixedString<256>::cformat(
             "\x1B[31mValidation failed: %s:\x1B[0m %s\x1B[31m at \"%s:%u:%u\"\x1B[0m\n", validator::_detail,
             validator::msg, validator::loc.file(), validator::loc.line(), validator::loc.column())
@@ -112,8 +112,8 @@ inline void signalHandlers()
                 validator::printFailure();
             } else {
                 // otherwise just print the regular stack trace for a segfault.
-                _emergencyPrint("\x1B[31mSegmentation Fault\n");
-                _emergencyPrint("\x1B[0m");
+                panicPrint("\x1B[31mSegmentation Fault\n");
+                panicPrint("\x1B[0m");
             }
             Profiler::printStackTrace();
             exit(-1);
@@ -127,9 +127,9 @@ inline void signalHandlers()
         sa.sa_flags = 0;
         sa.sa_restorer = nullptr;
         sa.sa_sigaction = [] [[gnu::no_instrument_function]] (int, void*, void*) -> void {
-            _emergencyPrint("\x1B[31mPanic: Program halted (CPU trap)\n");
+            panicPrint("\x1B[31mPanic: Program halted (CPU trap)\n");
             Profiler::printStackTrace();
-            _emergencyPrint("\x1B[0m");
+            panicPrint("\x1B[0m");
             exit(-1);
         };
         return sa;

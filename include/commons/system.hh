@@ -24,9 +24,12 @@
 #include "system/async.hh"                    // IWYU pragma: keep
 #include "system/streamstatus.inl"            // IWYU pragma: keep
 #include "system/outstream.inl"               // IWYU pragma: keep
-#include "system/stringstream.inl"            // IWYU pragma: keep
 #include "system/listdir.inl"                 // IWYU pragma: keep
 #include "system/shell.inl"                   // IWYU pragma: keep
+
+#include <commons/async/mutex.hh>
+#include <commons/async/criticalSection.hh>
+
 
 #ifdef __linux__
     #undef linux // who thought this was a good idea? it conflicts with this filepath!

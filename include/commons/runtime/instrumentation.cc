@@ -31,14 +31,12 @@ namespace cm {
 inline void Profiler::printStackTrace()
 {
     thread_local bool s_printed = false;
-    thread_local FixedArray<char, 1024> s_stackTraceBuffer;
-
     if (s_printed) {
         return;
     }
     s_printed = true;
     {
-        _emergencyPrint(
+        panicPrint(
             FixedString<64>::cformat(
                 "Process: %s\nMemory: %zu bytes\nStack Trace: %zu\n", "main", startup::memoryStats.bytesAllocated,
                 startup::s_currentStackFrameIndex)
@@ -46,7 +44,7 @@ inline void Profiler::printStackTrace()
     }
     for (auto i = startup::s_currentStackFrameIndex; i > 0; --i) {
         auto const& frame = startup::s_stackFrames[i];
-        _emergencyPrint(
+        panicPrint(
             FixedString<LibraryConfig::MAX_SYMBOL_LENGTH + 16>::cformat(
                 "\x1B[38;5;68m----(%zu) \x1B[32m%p\x1B[0m: \x1B[33m%s\x1B[0m\n", i, frame.funcAddr,
                 debug::getSymbolName(frame.funcAddr).valueOr("<?>").cstr())

@@ -72,7 +72,7 @@ auto cm::Win32StandardErrOutStream::_getHandle() -> HANDLE { return ::GetStdHand
 ///
 /// edit 5/9/2025
 ///
-void cm::io::_emergencyPrint(char const* str)
+void cm::io::panicPrint(char const* str)
 {
     DWORD _;
     UNSAFE({

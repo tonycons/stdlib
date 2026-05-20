@@ -15,11 +15,9 @@
    Description: Global variables for the library's runtime
 */
 
-
 #pragma once
-
-#include "commons/system.hh"  // IWYU pragma: keep
-#include "commons/config.hh"  // IWYU pragma: keep
+#include <commons/system.hh>
+#include <commons/config.hh>
 
 
 inline u32 cm::FastPRNG::_state;
@@ -36,27 +34,24 @@ inline thread_local char const* _detail;
 
 // global variables for the main runtime
 namespace startup {
-static thread_local Profiler::StackFrame s_stackFrames[LibraryConfig::MAX_STACK_FRAMES]{};
-static thread_local usize s_currentStackFrameIndex{};
-static PreInitAssertion preInitAssertions[LibraryConfig::MAX_PRE_INIT_ASSERTIONS]{};
-static usize preInitAssertionsCount = 0;
+inline thread_local Profiler::StackFrame s_stackFrames[LibraryConfig::MAX_STACK_FRAMES]{};
+inline thread_local usize s_currentStackFrameIndex{};
+inline PreInitAssertion preInitAssertions[LibraryConfig::MAX_PRE_INIT_ASSERTIONS]{};
+inline usize preInitAssertionsCount = 0;
 /// Memory usage statistics
 struct
 {
     usize bytesAllocated;
-} static memoryStats{};
+} inline memoryStats{};
 
 [[gnu::init_priority(LibraryConfig::GLOBAL_CTOR_BASE_PRIO)]]
-static Mutex panicMutex;
+inline Mutex panicMutex;
 
 }  // namespace startup
 
 /// A print function that goes directly to the system, used case the normal print function is unusable.
 /// For example, if the normal print function panics, then panic() cannot use the normal print function because there
 /// would be an infinite panic loop.
-inline void _emergencyPrint(char const* msg)
-{
-    kernel::call(kernel::write, kernel::stderr, msg, CArrays::stringLen(msg));
-}
+inline void panicPrint(char const* msg) { kernel::call(kernel::write, kernel::stderr, msg, cStringLen(msg)); }
 
 }  // namespace cm

@@ -29,9 +29,9 @@ namespace cm {
 /// FIXME:
 ///
 template<typename T, usize Capacity = 0>
-class FixedStack : private Array<T> {
-    using Base = Array<T>;
+class FixedStack : private FixedArray<T, Capacity> {
     usize _size = 0;
+    using Base = FixedArray<T, Capacity>;
 
 public:
     constexpr FixedStack() noexcept = default;

@@ -13,9 +13,7 @@
 */
 
 #pragma once
-#ifndef __inline_core_header__
-#warning Do not include this file directly; include "core.hh" instead
-#else
+#include <commons/core/union.hh>
 
 
 namespace cm {
@@ -224,4 +222,3 @@ struct Err<>
 };
 
 }  // namespace cm
-#endif

@@ -201,7 +201,7 @@ struct Collection : CollectionMethods::Map<Inheritor>,
     using RefElementType = ElementType&;
 
 
-    void toString(String& res) const;
+    // void toString(String& res) const;
 
     // using RefElementType = ElementType&;
 

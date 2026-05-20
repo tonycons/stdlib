@@ -15,6 +15,7 @@
 #pragma once
 #ifdef __inline_core_header__
 
+
 namespace LinuxFileStreamHelper {
 ///
 /// Translates Linux errno values in the context of files into (system-independent) Status codes
@@ -48,7 +49,7 @@ public:
     /// @param path Path to the file
     /// @param mode File opening mode
     ///
-    LinuxFileInStream(String const& path, FileOpenMode const mode)
+    LinuxFileInStream(StringRef const& path, FileOpenMode const mode)
     {
         u64 sysMode = 0;
         if (mode & FileOpenMode::Read) {
@@ -104,7 +105,8 @@ public:
     Result<usize, Status> readBytes(BufferType& buffer)
     {
         CriticalSection cs(_lock);
-        auto const result = kernel::call(kernel::read, _fd, buffer.data(), buffer.sizeBytes()).template cast<isize>();
+        auto const result =
+            kernel::call(kernel::read, _fd, buffer.data(), buffer.capacityBytes()).template cast<isize>();
         if (result < 0) {
             auto const err = static_cast<int>(-result);
             return Err(LinuxFileStreamHelper::setStatusFromErrno(_status, err));
@@ -149,30 +151,57 @@ public:
         kernel::call(kernel::lseek, offset, kernel::SeekCur);
     }
 
-    ///
-    /// @return On success, returns a string containing the contents of the entire file interpreted as text. On error,
-    /// returns a Status error code.
-    ///
+    // ///
+    // /// @return On success, returns a string containing the contents of the entire file interpreted as text. On
+    // error,
+    // /// returns a Status error code.
+    // ///
+    // template<usize BufferSize = 64>
+    // Result<String, Status> readAllAsString()
+    // {
+    //     CriticalSection cs(_lock);
+    //     seekStart();
+    //     DEFER { seekStart(); };
+    //     String str;
+    //     while (true) {
+    //         FixedArray<u8, BufferSize> tmp{};
+    //         auto const result = readBytes(tmp);
+    //         str.append(StringRef(reinterpret_cast<char const*>(tmp.data()), tmp.sizeBytes() / sizeof(char)));
+    //         if (result.isErr()) {
+    //             return Err(result.errVal());
+    //         }
+    //         auto const bytesRead = result.okVal();
+    //         if (bytesRead < BufferSize) {  // This means EOF was reached.
+    //             break;
+    //         }
+    //     }
+    //     return Ok(str);
+    // }
+
+
     template<usize BufferSize = 64>
-    Result<String, Status> readAllAsString()
+    auto readChunks() -> Generator<Result<FixedString<BufferSize>, Status>>
     {
-        CriticalSection cs(_lock);
-        seekStart();
-        DEFER { seekStart(); };
-        String str;
+        // CriticalSection cs(_lock);
+        // seekStart();
+        // DEFER { seekStart(); };
+        // for (int i = 0; i < 10; i++) {
+        //     co_yield Ok("hello");
+        // }
         while (true) {
-            FixedArray<u8, BufferSize> tmp{};
-            auto const result = readBytes(tmp);
-            str.append(StringRef(reinterpret_cast<char const*>(tmp.data()), tmp.sizeBytes() / sizeof(char)));
+            FixedString<BufferSize> str{};
+            auto const result = readBytes(str);
+            str = FixedString<BufferSize>(str.cstr());  // hack to make its length update
             if (result.isErr()) {
-                return Err(result.errVal());
+                co_yield Err(result.errVal());
+                break;
             }
             auto const bytesRead = result.okVal();
-            if (bytesRead < BufferSize) {  // This means EOF was reached.
+            co_yield Ok(str);
+            if (bytesRead < str.capacityBytes()) {  // This means EOF was reached.
                 break;
             }
         }
-        return Ok(str);
     }
 
     constexpr Status status() const { return _status; }
@@ -189,22 +218,20 @@ struct LinuxFileOutStream final : IOutStream<LinuxFileOutStream>, NonCopyable
     constexpr LinuxFileOutStream(LinuxFileOutStream&& other) = default;
     constexpr LinuxFileOutStream& operator=(LinuxFileOutStream&& other) = default;
 
+    constexpr static int BUFFER_SIZE = 512;
+
     int _fd = 0;
     StreamStatus _status = STATUS_OK;
-    Array<u8> _buffer;
+    FixedArray<u8, BUFFER_SIZE> _buffer{};
     usize _bufferUsed = 0;
 
 
     ///
     /// Creates a file descriptor for writing, assuming file exists
     /// @param path Absolute path to the file
-    /// @param bufferCapacity An optional capacity for the buffer, default 4KB
     ///
-    explicit LinuxFileOutStream(StringRef const& path, Optional<usize> const& bufferCapacity = None)
-        : _buffer(bufferCapacity.valueOr<usize>(4_KB))
+    explicit LinuxFileOutStream(StringRef const& path)
     {
-        // mode_t mode = S_IRUSR | S_IWUSR;
-
         if (auto const result = kernel::call(kernel::open, path.cstr(), O_WRONLY).cast<i64>();
             result < 0 && result > -0x1000)
         {
@@ -307,10 +334,9 @@ struct FileOutStream : Optional<LinuxFileOutStream>
     ///
     /// Creates a file descriptor for writing, assuming file exists
     /// @param path Absolute path to the file
-    /// @param bufferCapacity An optional capacity for the buffer, default 4KB
     ///
-    explicit FileOutStream(StringRef const& path, Optional<usize> const& bufferCapacity = 4_KB)
-        : Optional(LinuxFileOutStream(path, bufferCapacity))
+    explicit FileOutStream(StringRef const& path)
+        : Optional(LinuxFileOutStream(path))
     {}
 
     ~FileOutStream() = default;

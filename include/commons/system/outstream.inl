@@ -15,6 +15,8 @@
 #pragma once
 #ifdef __inline_core_header__
 
+#include <commons/allocators/resource.hh>
+
 namespace cm {
 
 enum class FileOpenMode : u8 {
@@ -110,9 +112,7 @@ public:
     /// @param value The value
     void print(auto const& value) const
     {
-        auto str = String::fmt("`", value);
-        writeBytes(str.cstr(), str.sizeBytes());
-        //_print('`', ArrayRef<RefWrapper<Printable const>>{RefWrapper<Printable const>(PrintableT(value))});
+        OutputString(value, [&](char c) { writeBytes(&c, sizeof(char)); });
     }
 
     /// Print a string literal to the stream
@@ -123,13 +123,27 @@ public:
     }
 
     /// Print a text followed to the stream with a format specifier.
-    /// @param sFmt The format string
+    /// @param format The format string
     /// @param args The arguments
-    void print(StringRef const& sFmt, auto const&... args) const
+    void print(StringRef const& format, auto const&... args) const
     {
-        auto str = String::fmt(sFmt, args...);
-        writeBytes(str.cstr(), str.sizeBytes());
-        //_print(sFmt, ArrayRef<RefWrapper<Printable const>>{(RefWrapper<Printable const>(PrintableT(args)))...});
+        auto fmtIter = format.begin();
+        auto advance = [&]() {
+            while (fmtIter.isNotEnd() && *fmtIter != '`') {
+                char c = *fmtIter;
+                writeBytes(&c, sizeof(char));
+                ++fmtIter;
+            }
+        };
+        advance();
+        (
+            [&]() {
+                Assert(fmtIter != format.end() && *fmtIter == '`', "More arguments than specified in format string");
+                OutputString(args, [&](char c) { writeBytes(&c, sizeof(char)); });
+                ++fmtIter;
+                advance();
+            }(),
+            ...);
     }
 
     /// Print a value followed by a newline to the stream.

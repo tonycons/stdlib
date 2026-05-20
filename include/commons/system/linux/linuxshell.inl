@@ -18,6 +18,7 @@
 #pragma once
 #ifdef __inline_core_header__
 
+/*
 struct LinuxShell : NonCopyable
 {
     consteval LinuxShell() noexcept = default;
@@ -53,5 +54,6 @@ struct LinuxShell : NonCopyable
 };
 
 constexpr inline auto shell = LinuxShell();
+*/
 
 #endif

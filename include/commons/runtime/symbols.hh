@@ -42,7 +42,11 @@ inline auto getSymbolName(void const* addr, bool demangle = true)
 
         if (info.dli_sname) {
             char* demangled = abi::__cxa_demangle(info.dli_sname, nullptr, nullptr, &status);
-            sname = demangle && status == 0 ? demangled : info.dli_sname;
+            if (demangle && status == 0) {
+                sname = demangled;
+            } else {
+                sname = info.dli_sname;
+            }
         }
         DEFER
         {

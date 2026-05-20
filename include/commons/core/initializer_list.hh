@@ -12,11 +12,11 @@
    the License.
 */
 #pragma once
-#ifndef __inline_core_header__
-#warning Do not include this file directly; include "core.hh" instead
-#else
+#include <commons/core/baseDefs.hh>
+#include <commons/core/intMath.hh>
+#include <cstring>
 
-
+/*
 namespace std {
 
 ///
@@ -77,6 +77,7 @@ constexpr T const* end(initializer_list<T> a) noexcept
 }
 
 }  // namespace std
+*/
 
 
 namespace cm {
@@ -166,80 +167,9 @@ struct TWrapIfReference<T const volatile&> { using Type = RefWrapper<T const vol
 template<typename T>
 using WrapIfReference = SelectType<IsReference<T>, T, typename TWrapIfReference<T>::Type>;
 
-///
-/// Use Array instead.
-/// Just a dummy struct for code that cannot depend on the real Array
-///
-template<typename T, unsigned N>
-struct CVArray
-{
-    T _data[N];
-
-    constexpr CVArray() = default;
-
-    constexpr CVArray(auto... values) requires (sizeof...(values) <= N)
-        : _data{static_cast<T>(values)...}
-    {}
-
-    constexpr CVArray(T const (&values)[N])
-        : _data(values)
-    {}
-
-    FORCEINLINE constexpr T& operator[](auto index)
-    {
-        UNSAFE({ return _data[index]; });
-    }
-
-    FORCEINLINE constexpr T const& operator[](auto index) const
-    {
-        UNSAFE({ return _data[index]; });
-    }
-};
-
-template<typename T, unsigned N>
-CVArray(T const (&)[N]) -> CVArray<T, N>;
-
-
-namespace CArrays {
-
-/**
- * @brief Moves data (which may be overlapping) to a new memory location, mostly used in ResizableArray
-
- * If the data "safe to move" (i.e. is trivially copyable or inherits from SafeBinaryMoveable), it is copied via
- * memmove. Otherwise, it is copied by using copy constructors.
-
- * "Safe to move" Means that for a given instance of type T, changing the instance's location in memory would not mess
- * up its internal state.
-
- * Node structures or structures using self-reference are generally not safe to move. Consider the
- * struct Foo { Foo() : ptr(&x) {}; int x; int *ptr; }
- * Moving an instance of Foo in memory would invalidate ptr.
-
- * @param dst Destination pointer to a series of uninitialized T.
- * @param src Source pointer to a series of instances of T.
- * @param n The number of elements to copy
- */
-UNSAFE_BEGIN
-template<typename T>
-constexpr void moveDataToNewRegion(T* dst, T const* src, usize n)
-{
-    if consteval {
-        for (__SIZE_TYPE__ i = 0; i < n; i++) {
-            new (dst + i) T(src[i]);
-        }
-    } else {
-        if constexpr (TriviallyCopyConstructible<T> || IsDerivedFrom<SafeBinaryMoveable, T>) {
-            __builtin_memmove(dst, src, sizeof(T) * n);
-        } else {
-            for (__SIZE_TYPE__ i = 0; i < n; i++) {
-                new (dst + i) T(src[i]);
-            }
-        }
-    }
-}
 
 template<typename T>
-constexpr bool equal(T const* a, T const* b, usize n)
+constexpr bool cArraysEqual(T const* a, T const* b, usize n)
 {
     if consteval {
         for (usize i = 0; i < n; i++) {
@@ -261,26 +191,78 @@ constexpr bool equal(T const* a, T const* b, usize n)
     return true;
 }
 
+
 template<typename T>
-constexpr void DefaultInitialize(T const* a, usize n)
+constexpr static T* cArrayDefaultConstruct(T* a, usize n)
 {
+    if (n == 0) {
+        return a;
+    }
     if consteval {
         for (usize i = 0; i < n; i++) {
-            a[i] = T{};
+            new (&a[i]) T{};
         }
     } else {
-        if constexpr (IsPrimitiveData<T>) {
+        if constexpr (IsPrimitiveData<T> || TriviallyDefaultConstructible<T>) {
             memset(a, 0, sizeof(T) * n);
         } else {
             for (auto i = 0uz; i < n; i++) {
-                a[i] = T{};
+                new (&a[i]) T{};
             }
+        }
+    }
+    return a;
+}
+
+
+/**
+ * @brief Initialize new memory location with data from another memory location. If the new memory location is larger,
+ * then the extra space is default initialized.
+ * @param newPtr Destination pointer to a series of uninitialized T.
+ * @param oldPtr Source pointer to a series of instances of T.
+ * @param newLength number of elements in the new location
+ * @param oldLength number of elements in the old location
+ */
+UNSAFE_BEGIN
+template<typename T>
+constexpr void cArrayInit(T* newPtr, T const* oldPtr, usize newLength, usize oldLength)
+{
+    // Assert(newLength >= oldLength);
+    if consteval {
+        for (usize i = 0; i < min(newLength, oldLength); i++) {
+            new (&newPtr[i]) T{oldPtr[i]};
+        }
+    } else {
+        if constexpr (TriviallyCopyConstructible<T> || IsDerivedFrom<SafeBinaryMoveable, T>) {
+            __builtin_memmove(newPtr, oldPtr, sizeof(T) * min(newLength, oldLength));
+        } else {
+            for (__SIZE_TYPE__ i = 0; i < min(newLength, oldLength); i++) {
+                new (&newPtr[i]) T{oldPtr[i]};
+            }
+        }
+    }
+    if (newLength > oldLength) {
+        cArrayDefaultConstruct(newPtr + oldLength, newLength - oldLength);
+    }
+}
+
+template<typename T>
+constexpr static void cArrayDestroy(T* a, usize n, bool setZero)
+{
+    if constexpr (!TriviallyDestructible<T>) {
+        for (usize i = 0; i < n; i++) {
+            a[i].~T();
+        }
+    }
+    if !consteval {
+        if (setZero) {
+            memset(static_cast<void*>(a), 0, sizeof(T) * n);
         }
     }
 }
 
 template<typename T>
-constexpr auto stringLen(T const* str)
+constexpr auto cStringLen(T const* str)
 {
     if consteval {
         auto len = 0uz;
@@ -301,16 +283,14 @@ constexpr auto stringLen(T const* str)
     }
 }
 
-constexpr auto For(Range<usize> const& range, auto* ptr, auto func)
-{
-    for (auto i : range) {
-        func(ptr[i]);
-    }
-}
+// constexpr auto For(Range<usize> const& range, auto* ptr, auto func)
+// {
+//     for (auto i : range) {
+//         func(ptr[i]);
+//     }
+// }
 
-}  // namespace CArrays
 
 UNSAFE_END
 
 }  // namespace cm
-#endif

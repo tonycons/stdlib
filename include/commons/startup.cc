@@ -48,11 +48,11 @@ inline void ::cm::panic(char const* message, char const* reason, SourceLocation 
         kernel::call(kernel::write, kernel::stderr, str, len);
     };
     write("\x1B[31m", sizeof("\x1B[31m"));
-    write(message, CArrays::stringLen(message));
+    write(message, cStringLen(message));
     write(" in ", 4);
-    write(getIfNull(src.function(), "<unknown function>"), CArrays::stringLen(src.function()));
+    write(getIfNull(src.function(), "<unknown function>"), cStringLen(src.function()));
     write((" at \""), 5);
-    write(getIfNull(src.file(), "<unknown file>"), CArrays::stringLen(src.file()));
+    write(getIfNull(src.file(), "<unknown file>"), cStringLen(src.file()));
     write("\"", 1);
     Profiler::printStackTrace();
     write("\x1B[0m", sizeof("\x1B[0m"));
@@ -72,7 +72,7 @@ inline void ::cm::panic(char const* message, char const* reason, SourceLocation 
 void ::cm::addPreInitAssertion(PreInitAssertion const& assertion)
 {
     if (startup::preInitAssertionsCount >= LibraryConfig::MAX_PRE_INIT_ASSERTIONS) {
-        _emergencyPrint("Maximum number of PreInitAssertions exceeded\n");
+        panicPrint("Maximum number of PreInitAssertions exceeded\n");
         CPU::trap();
     }
     startup::preInitAssertions[startup::preInitAssertionsCount] = assertion;
@@ -82,7 +82,8 @@ void ::cm::addPreInitAssertion(PreInitAssertion const& assertion)
 ///
 /// Verifies all the preconditions are true before main starts.
 ///
-[[gnu::constructor(LibraryConfig::GLOBAL_CTOR_PRECONDITION_CHECK_PRIO), gnu::no_instrument_function]]
+[[gnu::constructor(LibraryConfig::GLOBAL_CTOR_PRECONDITION_CHECK_PRIO)]]  //
+[[gnu::no_instrument_function]]
 void checkPreInitAssertions(usize max_fails = LibraryConfig::MAX_PRE_INIT_FAILURES)
 {
     usize fails = 0;
@@ -111,25 +112,25 @@ void checkPreInitAssertions(usize max_fails = LibraryConfig::MAX_PRE_INIT_FAILUR
 }  // namespace cm
 
 
-constexpr auto DEFAULT_ALIGNMENT = static_cast<std::align_val_t>(8);
+/*
+constexpr auto DEFAULT_ALIGNMENT = alignof(max_align_t);
 
 
-inline void* newImpl(std::size_t const size, std::align_val_t alignment)
+inline void* newImpl(usize const size, usize const alignment)
 {
-    void* ptr;
-    if (alignment == DEFAULT_ALIGNMENT) {
-        ptr = malloc(size);
-    } else {
-        ptr = aligned_alloc(static_cast<size_t>(alignment), size);
-    }
-    cm::startup::memoryStats.bytesAllocated += size;
+    auto true_align = ::cm::roundup2(::cm::max(alignment, DEFAULT_ALIGNMENT));
+    auto true_size = ::cm::roundUpToMultiple(true_align, size);
+    void* ptr = aligned_alloc(true_align, true_size);
+    ::cm::startup::memoryStats.bytesAllocated += size;
     ::cm::Assert(ptr);
     return ptr;
 }
 
-inline void* newImplNothrow(std::size_t const size, std::align_val_t alignment) noexcept
+inline void* newImplNothrow(usize const size, usize const alignment) noexcept
 {
-    void* ptr = aligned_alloc(static_cast<size_t>(alignment), size);
+    auto true_align = ::cm::roundup2(::cm::max(alignment, DEFAULT_ALIGNMENT));
+    auto true_size = ::cm::roundUpToMultiple(true_align, size);
+    void* ptr = aligned_alloc(true_align, true_size);
     ::cm::startup::memoryStats.bytesAllocated += size;
     ::cm::Assert(ptr);
     return ptr;
@@ -137,7 +138,7 @@ inline void* newImplNothrow(std::size_t const size, std::align_val_t alignment) 
 
 inline void deleteImpl(void* ptr, usize size = 1)
 {
-    VALIDATE_SIZED(static_cast<u8*>(ptr), size);
+    $validate_sized(static_cast<u8*>(ptr), size);
     auto sz = malloc_usable_size(ptr);
     free(ptr);
     if (sz > ::cm::startup::memoryStats.bytesAllocated) {
@@ -151,39 +152,36 @@ inline void deleteImpl(void* ptr, usize size = 1)
 //
 
 void* operator new(usize size) { return newImpl(size, DEFAULT_ALIGNMENT); }
-
 void* operator new[](usize size) { return newImpl(size, DEFAULT_ALIGNMENT); }
 
-void* operator new(usize size, std::align_val_t al) { return newImpl(size, al); }
-
-void* operator new[](usize size, std::align_val_t al) { return newImpl(size, al); }
+void* operator new(usize size, std::align_val_t al) { return newImpl(size, std::to_underlying(al)); }
+void* operator new[](usize size, std::align_val_t al) { return newImpl(size, std::to_underlying(al)); }
 
 void* operator new(usize size, std::nothrow_t const&) noexcept { return newImplNothrow(size, DEFAULT_ALIGNMENT); }
-
 void* operator new[](usize size, std::nothrow_t const&) noexcept { return newImplNothrow(size, DEFAULT_ALIGNMENT); }
 
-void* operator new(usize size, std::align_val_t al, std::nothrow_t const&) noexcept { return newImplNothrow(size, al); }
+void* operator new(usize size, std::align_val_t al, std::nothrow_t const&) noexcept
+{
+    return newImplNothrow(size, std::to_underlying(al));
+}
 
 void* operator new[](usize size, std::align_val_t al, std::nothrow_t const&) noexcept
 {
-    return newImplNothrow(size, al);
+    return newImplNothrow(size, std::to_underlying(al));
 }
 
 //
 
 void operator delete(void* ptr) noexcept { return deleteImpl(ptr); }
-
 void operator delete[](void* ptr) noexcept { return deleteImpl(ptr); }
-
 void operator delete(void* ptr, usize size) noexcept { return deleteImpl(ptr, size); }
-
 void operator delete[](void* ptr, usize size) noexcept { return deleteImpl(ptr, size); }
 
 extern "C" void __cxa_pure_virtual()  // NOLINT
 {
     __builtin_trap();
 }
-
+*/
 
 #ifdef sa_handler
 #undef sa_handler

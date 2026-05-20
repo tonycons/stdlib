@@ -133,7 +133,7 @@ public:
             return true;
         if (length() != other.length())
             return false;
-        return ArrayRef<u8>(this->_data, this->length()).equals(ArrayRef<u8>(other._data, other.length()));
+        return ArrayRef<u8>(this->length(), this->_data).equals(ArrayRef<u8>(other.length(), other._data));
     }
 
 

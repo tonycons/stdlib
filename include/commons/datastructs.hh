@@ -24,7 +24,6 @@
 #include "datastructs/Collection.inl"  // IWYU pragma: keep
 #include "datastructs/FixedStack.inl"  // IWYU pragma: keep
 #include "datastructs/ByteVector.inl"  // IWYU pragma: keep
-#include "datastructs/String.inl"      // IWYU pragma: keep
 #include "datastructs/LinkedList.inl"  // IWYU pragma: keep
 #include "datastructs/FixedMap.inl"    // IWYU pragma: keep
 

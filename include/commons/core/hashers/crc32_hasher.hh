@@ -13,7 +13,8 @@
 */
 
 #pragma once
-#ifdef __inline_core_header__
+
+#include <commons/core/intMath.hh>
 
 #if defined(__x86_64__) && (defined(__SSE4_2__) || defined(__CRC32__))
 #define CM_HAS_HARDWARE_CRC32
@@ -191,4 +192,3 @@ struct Crc32
 
 
 }  // namespace cm
-#endif

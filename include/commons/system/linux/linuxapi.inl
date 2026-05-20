@@ -259,7 +259,7 @@ extern "C" int sigaction(int, sigaction_t const*, sigaction_t*);
 
 }  // namespace cm::unix
 
-extern "C" int errno;
+// extern "C" int errno;
 extern "C" FILE* popen(char const* __command, char const* __modes);
 extern "C" int pclose(FILE* __stream);
 extern "C" int fgetc(FILE* __stream);

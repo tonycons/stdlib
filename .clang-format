@@ -13,10 +13,17 @@ ColumnLimit: 120
 
 AccessModifierOffset: -4
 AlignAfterOpenBracket: AlwaysBreak
+
+AlignConsecutiveAssignments:
+  Enabled: false
+  AcrossEmptyLines: true
+  AcrossComments: true
+
 AlignConsecutiveDeclarations:
   Enabled: false
   AcrossEmptyLines: true
-  AcrossComments: false
+  AcrossComments: true
+  AlignFunctionDeclarations: true
 
 
 
@@ -64,7 +71,7 @@ InsertNewlineAtEOF: true
 
 MaxEmptyLinesToKeep: 2
 NamespaceIndentation: None
-PackConstructorInitializers: NextLineOnly
+PackConstructorInitializers: Never
 PointerAlignment: Left
 QualifierAlignment: Custom
 QualifierOrder: ['constexpr', 'inline', 'static', 'type', 'const', 'volatile']
